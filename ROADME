@@ -1,0 +1,65 @@
+
+## Funcionalidades Implementadas
+
+### 1. Gestión de Servicios
+- Agendar nuevos vehículos con formulario validado
+- Editar servicios existentes
+- Eliminar servicios con confirmación
+- Marcar servicios como completados
+
+### 2. Vistas de Visualización
+- **Vista Lista**: Muestra todos los servicios en formato de tarjetas
+- **Vista Semanal**: Muestra los servicios de los próximos 7 días
+- **Vista Calendario**: Calendario mensual con servicios destacados
+
+### 3. Filtrado y Búsqueda
+- Filtrado por estado (Todos, Pendientes, En Proceso, Completados)
+- Visualización clara del estado de cada servicio
+
+### 4. Estadísticas
+- Conteo total de servicios
+- Conteo por estado
+- Actualización en tiempo real
+
+## Instalación y Uso
+
+1. Clonar o descargar el proyecto
+2. Abrir `index.html` en un navegador web
+3. No se requiere servidor ni configuración adicional
+
+## Tecnologías Utilizadas
+
+- HTML5
+- CSS3 (con variables CSS y Grid/Flexbox)
+- JavaScript Vanilla (ES6+)
+- Font Awesome para iconos
+- Diseño responsivo
+
+## Datos de Ejemplo
+
+La aplicación incluye un servicio de ejemplo:
+- **ID**: A198272
+- **Vehículo**: Honda Accord 2020
+- **Cliente**: Jose Jimenez
+- **Servicio**: Alineación y Balanceo
+- **Estado**: Completado
+
+## Personalización
+
+Puedes personalizar:
+- Colores en las variables CSS en `:root`
+- Servicios disponibles en el formulario
+- Estructura de datos de servicios
+- Textos y etiquetas
+
+## Próximas Mejoras Posibles
+
+1. **Persistencia de Datos**: Usar localStorage o una API backend
+2. **Búsqueda Avanzada**: Por placa, cliente o modelo
+3. **Notificaciones**: Recordatorios de servicios pendientes
+4. **Reportes**: Generación de reportes en PDF/Excel
+5. **Multi-usuario**: Sistema de autenticación y roles
+
+## Licencia
+
+© 2026 Taller Hunter - Sistema de Gestión Mecánica
