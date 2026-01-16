@@ -1,12 +1,9 @@
-// Importar dependencias (en navegador esto no es necesario)
-// const { AppState, DataStore, DataUtils } = require('./data.js');
-
 // Servicios CRUD para citas/agendamientos
 const ServiceManager = {
     // Crear nueva cita
     createService: (serviceData) => {
         const newService = {
-            id: DataUtils.generateId('S'),
+            id: DataUtils.generateId('A'),
             ...serviceData,
             status: 'pending',
             createdAt: new Date().toISOString()
@@ -141,7 +138,54 @@ const ServicioManager = {
     }
 };
 
-// Exportar para uso en otros módulos
+// Gestión de empleados
+const EmpleadoManager = {
+    createEmpleado: (empleadoData) => {
+        const newEmpleado = {
+            id: DataUtils.generateId('E'),
+            ...empleadoData
+        };
+        
+        DataStore.empleados.push(newEmpleado);
+        return newEmpleado;
+    },
+    
+    updateEmpleado: (empleadoId, updates) => {
+        const index = DataStore.empleados.findIndex(e => e.id === empleadoId);
+        if (index !== -1) {
+            DataStore.empleados[index] = { ...DataStore.empleados[index], ...updates };
+            return DataStore.empleados[index];
+        }
+        return null;
+    },
+    
+    deleteEmpleado: (empleadoId) => {
+        const index = DataStore.empleados.findIndex(e => e.id === empleadoId);
+        if (index !== -1) {
+            return DataStore.empleados.splice(index, 1)[0];
+        }
+        return null;
+    }
+};
+
+// Gestión de configuración
+const ConfiguracionManager = {
+    updateConfiguracion: (updates) => {
+        DataStore.configuracion = { ...DataStore.configuracion, ...updates };
+        return DataStore.configuracion;
+    },
+    
+    getConfiguracion: () => {
+        return DataStore.configuracion;
+    }
+};// services.js (al final)
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ServiceManager, VehiculoManager, ClienteManager, ServicioManager };
+    module.exports = { ServiceManager, VehiculoManager, ClienteManager, ServicioManager, EmpleadoManager, ConfiguracionManager };
+} else {
+    window.ServiceManager = ServiceManager;
+    window.VehiculoManager = VehiculoManager;
+    window.ClienteManager = ClienteManager;
+    window.ServicioManager = ServicioManager;
+    window.EmpleadoManager = EmpleadoManager;
+    window.ConfiguracionManager = ConfiguracionManager;
 }
