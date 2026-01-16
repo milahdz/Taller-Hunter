@@ -14,8 +14,6 @@ const CalendarManager = {
             const dayNames = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
             const dayName = dayNames[date.getDay()];
             const dayNumber = date.getDate();
-            const month = date.getMonth() + 1;
-            const year = date.getFullYear();
             
             // Filtrar servicios para este día
             const dayServices = services.filter(service => {
@@ -196,9 +194,9 @@ const CalendarManager = {
             return serviceDate >= startDate && serviceDate <= endDate;
         });
     }
-};
-
-// Exportar para uso en otros módulos
+};// calendar.js (al final)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { CalendarManager };
+} else {
+    window.CalendarManager = CalendarManager;
 }
