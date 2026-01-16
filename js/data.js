@@ -6,7 +6,8 @@ const AppState = {
     editingServiceId: null,
     editingVehiculoId: null,
     editingClienteId: null,
-    editingServicioId: null
+    editingServicioId: null,
+    editingEmpleadoId: null
 };
 
 // Datos de la aplicación
@@ -34,7 +35,9 @@ const DataStore = {
             modelo: "Corolla",
             año: "2020",
             color: "Blanco",
-            clienteId: "C001"
+            kilometraje: "45000",
+            clienteId: "C001",
+            notas: ""
         }
     ],
     
@@ -44,21 +47,73 @@ const DataStore = {
             nombre: "Jose Jimenez",
             telefono: "8298521218",
             email: "jose@email.com",
-            direccion: "Calle Principal #123"
+            direccion: "Calle Principal #123",
+            notas: "Cliente frecuente"
         }
     ],
     
     tiposServicio: [
-        { id: "TS001", nombre: "Alineación y Balanceo", precio: 1500, duracion: "2 horas" },
-        { id: "TS002", nombre: "Cambio de Aceite", precio: 800, duracion: "1 hora" },
-        { id: "TS003", nombre: "Revisión de Frenos", precio: 1200, duracion: "3 horas" }
+        { 
+            id: "TS001", 
+            nombre: "Alineación y Balanceo", 
+            descripcion: "Alineación de ruedas y balanceo de llantas",
+            precio: 1500, 
+            duracion: "2 horas",
+            categoria: "Suspensión"
+        },
+        { 
+            id: "TS002", 
+            nombre: "Cambio de Aceite", 
+            descripcion: "Cambio de aceite y filtro",
+            precio: 800, 
+            duracion: "1 hora",
+            categoria: "Mantenimiento"
+        },
+        { 
+            id: "TS003", 
+            nombre: "Revisión de Frenos", 
+            descripcion: "Revisión y reparación del sistema de frenos",
+            precio: 1200, 
+            duracion: "3 horas",
+            categoria: "Frenos"
+        }
     ],
     
     empleados: [
-        { id: "E001", nombre: "Juan Pérez", especialidad: "Mecánica General" },
-        { id: "E002", nombre: "María García", especialidad: "Electricidad Automotriz" },
-        { id: "E003", nombre: "Carlos López", especialidad: "Suspensión" }
-    ]
+        { 
+            id: "E001", 
+            nombre: "Juan Pérez", 
+            especialidad: "Mecánica General",
+            telefono: "8091234567",
+            email: "juan@taller.com",
+            horario: "Matutino (8am-4pm)"
+        },
+        { 
+            id: "E002", 
+            nombre: "María García", 
+            especialidad: "Electricidad Automotriz",
+            telefono: "8097654321",
+            email: "maria@taller.com",
+            horario: "Completo (8am-5pm)"
+        },
+        { 
+            id: "E003", 
+            nombre: "Carlos López", 
+            especialidad: "Suspensión",
+            telefono: "8099876543",
+            email: "carlos@taller.com",
+            horario: "Vespertino (1pm-9pm)"
+        }
+    ],
+    
+    configuracion: {
+        horarioApertura: "08:00",
+        horarioCierre: "18:00",
+        intervaloCitas: "30",
+        notificacionesEmail: true,
+        notificacionesSMS: false,
+        iva: 18
+    }
 };
 
 // Funciones de utilidad para datos
@@ -123,6 +178,7 @@ const DataUtils = {
     findVehiculoById: (id) => DataStore.vehiculos.find(v => v.id === id),
     findClienteById: (id) => DataStore.clientes.find(c => c.id === id),
     findServicioById: (id) => DataStore.tiposServicio.find(s => s.id === id),
+    findEmpleadoById: (id) => DataStore.empleados.find(e => e.id === id),
     
     // Obtener servicios por fecha
     getServicesByDate: (date) => {
@@ -136,10 +192,26 @@ const DataUtils = {
     // Obtener servicios por empleado
     getServicesByEmployee: (employeeName) => {
         return DataStore.services.filter(service => service.employee === employeeName);
+    },
+    
+    // Obtener vehículos por cliente
+    getVehiculosByCliente: (clienteId) => {
+        return DataStore.vehiculos.filter(vehiculo => vehiculo.clienteId === clienteId);
+    },
+    
+    // Formatear precio
+    formatPrecio: (precio) => {
+        return new Intl.NumberFormat('es-DO', {
+            style: 'currency',
+            currency: 'DOP'
+        }).format(precio);
     }
 };
-
-// Exportar para uso en otros módulos
+// data.js (al final)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { AppState, DataStore, DataUtils };
+} else {
+    window.DataUtils = DataUtils;
+    window.DataStore = DataStore;
+    window.AppState = AppState;
 }
