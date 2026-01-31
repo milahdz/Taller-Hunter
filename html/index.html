@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taller Hunter - Sistema de Gestión</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="C:/Users/PC/Desktop/Hunter 1/css/styles.css">
+<link rel="stylesheet" href="../css/styles.css">
 </head>
 <body>
     <div class="container">
@@ -485,12 +485,31 @@
         </div>
     </div>
 
+    <script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+  const supabaseUrl = 'https://nthowcrcdsgiaekedvzr.supabase.co'
+  const supabaseKey = 'sb_publishable_LsYNk1acOkOpCY_hlUhH0A_GQATYDCe'
+
+  // Crear cliente y ponerlo en window para acceso global
+  window.supabaseClient = createClient(supabaseUrl, supabaseKey)
+
+  console.log("✅ Supabase listo:", !!window.supabaseClient)
+
+
+  if (error) {
+    console.error("❌ Error Supabase:", error.message)
+  } else {
+    console.log("🎯 Conexión exitosa a Supabase, ejemplo:", data)
+  }
+</script>
+
     <!-- Scripts modulares -->
-    <script src="C:/Users/PC/Desktop/Hunter 1/js/data.js"></script>
-    <script src="C:/Users/PC/Desktop/Hunter 1/js/services.js"></script>
-    <script src="C:/Users/PC/Desktop/Hunter 1/js/calendar.js"></script>
-    <script src="C:/Users/PC/Desktop/Hunter 1/js/ui.js"></script>
-    <script src="C:/Users/PC/Desktop/Hunter 1/js/modals.js"></script>
-    <script src="C:/Users/PC/Desktop/Hunter 1/js/main.js"></script>
+    <script src="../js/data.js"></script>
+    <script src="../js/services.js"></script>
+    <script src="../js/calendar.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/modals.js"></script>
+    <script src="../js/main.js"></script>
 </body>
 </html>
