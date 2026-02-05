@@ -12,99 +12,15 @@ const AppState = {
 
 // Datos de la aplicación
 const DataStore = {
-    services: [
-        {
-            id: "A198272",
-            vehicle: "Honda Accord 2020",
-            owner: "Jose Jimenez",
-            date: "2026-07-31",
-            service: "Alineación y Balanceo",
-            phone: "8298521218",
-            time: "08:34",
-            employee: "Juan Pérez",
-            status: "completed",
-            notes: "Entrega hoy"
-        }
-    ],
+    services: [],
     
-    vehiculos: [
-        {
-            id: "V001",
-            placa: "ABC123",
-            marca: "Toyota",
-            modelo: "Corolla",
-            año: "2020",
-            color: "Blanco",
-            kilometraje: "45000",
-            clienteId: "C001",
-            notas: ""
-        }
-    ],
+    vehiculos: [],
     
-    clientes: [
-        {
-            id: "C001",
-            nombre: "Jose Jimenez",
-            telefono: "8298521218",
-            email: "jose@email.com",
-            direccion: "Calle Principal #123",
-            notas: "Cliente frecuente"
-        }
-    ],
+    clientes: [],
     
-    tiposServicio: [
-        { 
-            id: "TS001", 
-            nombre: "Alineación y Balanceo", 
-            descripcion: "Alineación de ruedas y balanceo de llantas",
-            precio: 1500, 
-            duracion: "2 horas",
-            categoria: "Suspensión"
-        },
-        { 
-            id: "TS002", 
-            nombre: "Cambio de Aceite", 
-            descripcion: "Cambio de aceite y filtro",
-            precio: 800, 
-            duracion: "1 hora",
-            categoria: "Mantenimiento"
-        },
-        { 
-            id: "TS003", 
-            nombre: "Revisión de Frenos", 
-            descripcion: "Revisión y reparación del sistema de frenos",
-            precio: 1200, 
-            duracion: "3 horas",
-            categoria: "Frenos"
-        }
-    ],
+    tiposServicio: [],
     
-    empleados: [
-        { 
-            id: "E001", 
-            nombre: "Juan Pérez", 
-            especialidad: "Mecánica General",
-            telefono: "8091234567",
-            email: "juan@taller.com",
-            horario: "Matutino (8am-4pm)"
-        },
-        { 
-            id: "E002", 
-            nombre: "María García", 
-            especialidad: "Electricidad Automotriz",
-            telefono: "8097654321",
-            email: "maria@taller.com",
-            horario: "Completo (8am-5pm)"
-        },
-        { 
-            id: "E003", 
-            nombre: "Carlos López", 
-            especialidad: "Suspensión",
-            telefono: "8099876543",
-            email: "carlos@taller.com",
-            horario: "Vespertino (1pm-9pm)"
-        }
-    ],
+    empleados: [],
     
     configuracion: {
         horarioApertura: "08:00",
@@ -121,24 +37,33 @@ const DataUtils = {
     generateId: (prefix = '') => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let id = prefix;
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 8; i++) {
             id += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return id;
     },
     
     formatDate: (dateStr) => {
-        const date = new Date(dateStr);
-        return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+        if (!dateStr) return 'N/A';
+        try {
+            const date = new Date(dateStr);
+            return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+        } catch (e) {
+            return dateStr;
+        }
     },
     
     formatTime: (timeStr) => {
         if (!timeStr) return '';
-        const [hours, minutes] = timeStr.split(':');
-        const hour = parseInt(hours);
-        const ampm = hour >= 12 ? 'p.m.' : 'a.m.';
-        const hour12 = hour % 12 || 12;
-        return `${hour12}:${minutes} ${ampm}`;
+        try {
+            const [hours, minutes] = timeStr.split(':');
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'p.m.' : 'a.m.';
+            const hour12 = hour % 12 || 12;
+            return `${hour12}:${minutes} ${ampm}`;
+        } catch (e) {
+            return timeStr;
+        }
     },
     
     getTabName: (tab) => {
@@ -205,13 +130,17 @@ const DataUtils = {
             style: 'currency',
             currency: 'DOP'
         }).format(precio);
+    },
+    
+    // Acortar texto
+    truncateText: (text, maxLength = 50) => {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
     }
 };
-// data.js (al final)
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { AppState, DataStore, DataUtils };
-} else {
-    window.DataUtils = DataUtils;
-    window.DataStore = DataStore;
-    window.AppState = AppState;
-}
+
+// Exportar para uso global
+window.DataUtils = DataUtils;
+window.DataStore = DataStore;
+window.AppState = AppState;

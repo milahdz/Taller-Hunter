@@ -28,10 +28,88 @@ body {
     color: var(--gray-800);
     line-height: 1.5;
 }
+/* Estilos para el modal híbrido */
+.form-group small.text-muted {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+#infoGuardado {
+    border-left: 4px solid var(--primary);
+    background-color: #f8f9fa;
+}
+
+#infoGuardado i {
+    color: var(--primary);
+    margin-right: 8px;
+}
+
+/* Estilos para datalist */
+input[list] {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+    padding-right: 35px;
+}
+
+/* Animación para notificaciones */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notification {
+    animation: slideInRight 0.3s ease;
+}
+
+/* Mejoras para selects */
+.form-select option {
+    padding: 8px;
+}
+
+.form-select:disabled {
+    background-color: #e9ecef;
+    opacity: 0.7;
+}
+
+/* Separador visual entre opciones nuevas y existentes */
+.form-group:has(+ .form-group[id$="_existente_container"]) {
+    margin-bottom: 8px;
+}
+
+.form-group[id$="_existente_container"] {
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px dashed #dee2e6;
+}
 
 .container {
     display: flex;
     min-height: 100vh;
+}
+/* Spinner de carga */
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* Sidebar */

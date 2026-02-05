@@ -196,85 +196,64 @@
         </main>
     </div>
     
-    <!-- Modal para agendar nuevo vehículo -->
-    <div class="modal" id="scheduleModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Agendar Nuevo Vehículo</h3>
-                <button class="close-modal" id="closeModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="scheduleForm">
-                    <div class="form-group">
-                        <label for="plate" class="required">Placa</label>
-                        <input type="text" id="plate" class="form-control" placeholder="ABC-1234" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="owner" class="required">Propietario</label>
-                        <input type="text" id="owner" class="form-control" placeholder="Nombre completo" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="model">Modelo</label>
-                        <input type="text" id="model" class="form-control" placeholder="Toyota Corolla 2020">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="phone">Teléfono</label>
-                        <input type="tel" id="phone" class="form-control" placeholder="+1234567890">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="service" class="required">Tipo de Servicio</label>
-                        <select id="service" class="form-select" required>
-                            <option value="">Seleccionar servicio</option>
-                            <option value="Alineación y Balanceo">Alineación y Balanceo</option>
-                            <option value="Cambio de Aceite">Cambio de Aceite</option>
-                            <option value="Revisión de Frenos">Revisión de Frenos</option>
-                            <option value="Suspensión">Suspensión</option>
-                            <option value="Sistema Eléctrico">Sistema Eléctrico</option>
-                            <option value="Revisión General">Revisión General</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="employee" class="required">Empleado</label>
-                        <select id="employee" class="form-select" required>
-                            <option value="">Seleccionar empleado</option>
-                            <option value="Juan Pérez">Juan Pérez</option>
-                            <option value="María García">María García</option>
-                            <option value="Carlos López">Carlos López</option>
-                            <option value="Ana Rodríguez">Ana Rodríguez</option>
-                            <option value="Pedro Martínez">Pedro Martínez</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="date" class="required">Fecha</label>
-                        <input type="date" id="date" class="form-control" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="time">Hora</label>
-                        <div class="time-input-group">
-                            <input type="time" id="time" class="form-control" value="08:30">
-                            <div class="time-format">a.m.</div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="notes">Notas Adicionales</label>
-                        <textarea id="notes" class="form-control" rows="3" placeholder="Detalles del problema o requerimientos especiales..."></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" id="cancelBtn">Cancelar</button>
-                <button class="btn btn-primary" id="saveBtn">Guardar</button>
-            </div>
+   <!-- Modal para agendar nuevo vehículo -->
+<div class="modal" id="scheduleModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Agendar Nuevo Vehículo</h3>
+            <button class="close-modal" id="closeModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="scheduleForm">
+                <!-- Vehículo (TEXTO LIBRE) -->
+                <div class="form-group">
+                    <label for="vehiculo" class="required">Vehículo / Placa</label>
+                    <input type="text" id="vehiculo" class="form-control" placeholder="Ej: Toyota Corolla ABC-123" required>
+                </div>
+                
+                <!-- Cliente (TEXTO LIBRE) -->
+                <div class="form-group">
+                    <label for="cliente" class="required">Cliente</label>
+                    <input type="text" id="cliente" class="form-control" placeholder="Nombre del cliente" required>
+                </div>
+                
+                <!-- Fecha -->
+                <div class="form-group">
+                    <label for="fecha" class="required">Fecha</label>
+                    <input type="date" id="fecha" class="form-control" required>
+                </div>
+                
+                <!-- Servicio (TEXTO LIBRE) -->
+                <div class="form-group">
+                    <label for="servicio" class="required">Servicio</label>
+                    <input type="text" id="servicio" class="form-control" placeholder="Ej: Cambio de aceite, Alineación" required>
+                </div>
+                
+                <!-- Empleado (TEXTO LIBRE) -->
+                <div class="form-group">
+                    <label for="empleado" class="required">Empleado</label>
+                    <input type="text" id="empleado" class="form-control" placeholder="Nombre del empleado" required>
+                </div>
+                
+                <!-- Teléfono (opcional) -->
+                <div class="form-group">
+                    <label for="telefono">Teléfono de Contacto</label>
+                    <input type="tel" id="telefono" class="form-control" placeholder="+1234567890">
+                </div>
+                
+                <!-- Notas -->
+                <div class="form-group">
+                    <label for="notas">Notas Adicionales</label>
+                    <textarea id="notas" class="form-control" rows="3" placeholder="Detalles del problema o requerimientos especiales..."></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" id="cancelBtn">Cancelar</button>
+            <button class="btn btn-primary" id="saveScheduleBtn">Guardar</button>
         </div>
     </div>
+</div>
     
     <!-- Modal para vehículos -->
     <div class="modal" id="vehiculoModal">
@@ -485,31 +464,85 @@
         </div>
     </div>
 
-    <script type="module">
-  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
-
-  const supabaseUrl = 'https://nthowcrcdsgiaekedvzr.supabase.co'
-  const supabaseKey = 'sb_publishable_LsYNk1acOkOpCY_hlUhH0A_GQATYDCe'
-
-  // Crear cliente y ponerlo en window para acceso global
-  window.supabaseClient = createClient(supabaseUrl, supabaseKey)
-
-  console.log("✅ Supabase listo:", !!window.supabaseClient)
-
-
-  if (error) {
-    console.error("❌ Error Supabase:", error.message)
-  } else {
-    console.log("🎯 Conexión exitosa a Supabase, ejemplo:", data)
-  }
+ <script type="module">
+    // === CONEXIÓN SUPABASE ===
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+    
+    const SUPABASE_URL = 'https://nthowcrcdsgiaekedvzr.supabase.co'
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50aG93Y3JjZHNnaWFla2VkdnpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTI3MjIsImV4cCI6MjA4MDY4ODcyMn0.BnqOeVPlBN52hxZWv88rohprQszE7ynnWrCpydDTYhY' // Tu clave pública
+    
+    window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+    console.log('✅ Supabase conectado')
 </script>
+
 
     <!-- Scripts modulares -->
     <script src="../js/data.js"></script>
+    <script src="../js/db.js"></script>
     <script src="../js/services.js"></script>
+    <script src="../js/modals.js"></script>
     <script src="../js/calendar.js"></script>
     <script src="../js/ui.js"></script>
-    <script src="../js/modals.js"></script>
+    <script src="../js/agenda.js"></script>
     <script src="../js/main.js"></script>
+
+    <script>
+// SCRIPT DE DIAGNÓSTICO
+console.log('🔧 EJECUTANDO DIAGNÓSTICO...');
+
+// 1. Verificar todos los elementos del modal
+const elementosModal = [
+    'scheduleModal', 'scheduleForm', 'saveScheduleBtn', 'cancelBtn', 'closeModal',
+    'vehiculo_nuevo', 'cliente_nuevo', 'fecha', 'servicio', 'empleado', 'telefono', 'notas'
+];
+
+console.log('📋 Elementos del modal:');
+elementosModal.forEach(id => {
+    const el = document.getElementById(id);
+    console.log(`  ${id}:`, el ? '✅ Existe' : '❌ NO EXISTE');
+    if (el) {
+        console.log(`    - Tipo:`, el.tagName);
+        console.log(`    - Valor:`, el.value || '(sin valor)');
+    }
+});
+
+// 2. Verificar si supabase está disponible
+console.log('🌐 Supabase:', window.supabase ? '✅ Disponible' : '❌ NO disponible');
+
+// 3. Función de prueba directa
+window.probarGuardado = async function() {
+    console.log('🧪 Probando guardado directo...');
+    
+    const datos = {
+        id: 'TEST_' + Date.now(),
+        vehiculo_id: '1',
+        cliente_id: 'CLI_TEST',
+        tipo_servicio_id: 'SVC_TEST',
+        empleado_id: 'Empleado Test',
+        fecha: new Date().toISOString().split('T')[0],
+        hora: '08:00',
+        estado: 'pending',
+        notas: 'Prueba directa'
+    };
+    
+    try {
+        const { data, error } = await supabase
+            .from('registro_servicio_vehiculo')
+            .insert([datos])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        console.log('✅ Prueba exitosa:', data);
+        alert('✅ Prueba de conexión exitosa!');
+    } catch (error) {
+        console.error('❌ Error en prueba:', error);
+        alert('❌ Error: ' + error.message);
+    }
+};
+
+console.log('✅ Diagnóstico completo');
+console.log('💡 Para probar conexión directa, ejecuta: probarGuardado()');
+</script>
 </body>
 </html>

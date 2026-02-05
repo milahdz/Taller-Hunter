@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Taller Hunter</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ed 100%);
+            min-height: 100vh;
+        }
+        
+        .dashboard-header {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            background: #2c3e50;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .btn-logout {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        
+        .btn-logout:hover {
+            background: #c82333;
+        }
+        
+        .dashboard-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+        
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .welcome-message h2 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <div>
+            <h1 style="color: #2c3e50; margin: 0;">Taller Hunter</h1>
+            <p style="color: #6b7280; margin: 5px 0 0 0;">Sistema de Gestión de Agenda</p>
+        </div>
+        
+        <div class="user-info">
+            <div class="user-avatar" id="userAvatar">U</div>
+            <div>
+                <div id="userName" style="font-weight: 500;"></div>
+                <div id="userRole" style="font-size: 13px; color: #6b7280;"></div>
+            </div>
+            <button class="btn-logout" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+            </button>
+        </div>
+    </div>
+    
+    <div id="message" class="message" style="display: none;"></div>
+    
+    <div class="dashboard-content">
+        <div class="welcome-message">
+            <h2>Bienvenido al Sistema de Gestión</h2>
+            <p id="welcomeText">Cargando información...</p>
+            <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center;">
+                <button onclick="goToMainSystem()" style="background: #2c3e50; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;">
+                    Ir al Sistema Principal
+                </button>
+                <button onclick="logout()" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;">
+                    <i class="fas fa-home"></i> Volver al Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Verificar autenticación SOLO con 'tallerhunter_user'
+        function checkAuth() {
+            const userData = localStorage.getItem('tallerhunter_user');
+            
+            console.log('Verificando autenticación...', userData);
+            
+            if (!userData) {
+                showMessage('No estás autenticado. Redirigiendo al login...', 'error');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                return null;
+            }
+            
+            try {
+                const user = JSON.parse(userData);
+                console.log('Usuario encontrado:', user);
+                return user;
+            } catch (error) {
+                console.error('Error al parsear datos de usuario:', error);
+                showMessage('Error en la sesión. Redirigiendo...', 'error');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                return null;
+            }
+        }
+        
+        // Mostrar mensaje
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+            
+            if (type === 'error') {
+                setTimeout(() => {
+                    messageDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+        
+        // Cargar información del usuario
+        function loadUserInfo() {
+            const user = checkAuth();
+            
+            if (!user) return;
+            
+            // Mostrar información
+            document.getElementById('userName').textContent = user.nombre || 'Usuario';
+            document.getElementById('userRole').textContent = `Rol: ${user.rol || 'No asignado'}`;
+            document.getElementById('welcomeText').textContent = 
+                `Has iniciado sesión como ${user.nombre} (${user.rol}).`;
+            
+            // Crear avatar con iniciales
+            if (user.nombre) {
+                const initials = user.nombre.split(' ').map(n => n[0]).join('').toUpperCase();
+                document.getElementById('userAvatar').textContent = initials.substring(0, 2);
+            }
+            
+            showMessage(`Bienvenido ${user.nombre}!`, 'success');
+        }
+        
+        // Cerrar sesión
+        function logout() {
+            if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
+                localStorage.removeItem('tallerhunter_user');
+                window.location.href = 'index.html';
+            }
+        }
+        
+        // Ir al sistema principal (ajusta esta ruta según tu estructura)
+        function goToMainSystem() {
+            // Aquí pones la ruta a tu sistema principal
+            // Por ejemplo: window.location.href = 'sistema/index.html';
+            // O si está en la misma carpeta: window.location.href = 'main.html';
+            showMessage('Redirigiendo al sistema principal...', 'success');
+            setTimeout(() => {
+                // CAMBIA ESTA RUTA A DONDE TENGA TU SISTEMA PRINCIPAL
+                window.location.href = 'sistema/index.html';
+            }, 1500);
+        }
+        
+        // Inicializar al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Dashboard inicializado');
+            loadUserInfo();
+        });
+    </script>
+    
+    <!-- Agregar Font Awesome para el icono -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</body>
+</html>

@@ -18,14 +18,21 @@
         <div class="login-box">
             <h2 class="form-title">Iniciar Sesión</h2>
             
+            <!-- Tabs para Login/Registro -->
+            <div class="tabs-login">
+                <button class="tab-login active" id="tabLogin">Iniciar Sesión</button>
+                <button class="tab-login" id="tabRegister">Crear Cuenta</button>
+            </div>
+            
             <!-- Mensajes de estado -->
             <div id="message" class="message"></div>
             
+            <!-- Formulario de Login -->
             <form id="login-form" class="login-form">
                 <div class="form-group">
                     <label for="email">Correo Electrónico</label>
                     <div class="input-container">
-                        <input type="email" id="email" placeholder="tu@email.com" required>
+                        <input type="email" id="email" placeholder="admin@tallerhunter.com" required>
                     </div>
                 </div>
                 
@@ -45,6 +52,55 @@
                 </button>
             </form>
             
+            <!-- Formulario de Registro -->
+            <form id="register-form" class="login-form" style="display: none;">
+                <div class="form-group">
+                    <label for="reg-nombre">Nombre Completo *</label>
+                    <div class="input-container">
+                        <input type="text" id="reg-nombre" placeholder="Juan Pérez" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reg-email">Correo Electrónico *</label>
+                    <div class="input-container">
+                        <input type="email" id="reg-email" placeholder="tu@email.com" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reg-password">Contraseña *</label>
+                    <div class="input-container">
+                        <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" required minlength="6">
+                        <button type="button" class="password-toggle" id="toggleRegPassword">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reg-confirm-password">Confirmar Contraseña *</label>
+                    <div class="input-container">
+                        <input type="password" id="reg-confirm-password" placeholder="Repite tu contraseña" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reg-rol">Rol *</label>
+                    <select id="reg-rol" class="form-select" required>
+                        <option value="">Seleccionar rol</option>
+                        <option value="empleado">Empleado</option>
+                        <option value="mecanico">Mecánico</option>
+                        <option value="recepcion">Recepción</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="login-button btn-register" id="register-button">
+                    <span id="register-button-text">Crear Cuenta</span>
+                    <span id="register-button-loader" class="loading" style="display: none;"></span>
+                </button>
+            </form>
+            
             <div class="login-footer">
                 <p>¿Problemas para acceder? <a href="#" id="contact-admin">Contacta al administrador</a></p>
                 <div class="copyright">
@@ -55,33 +111,17 @@
     </div>
 
     <script>
-        // Configuración de Supabase
-        const SUPABASE_URL = 'https://tu-proyecto.supabase.co';
-        const SUPABASE_ANON_KEY = 'tu-clave-anon-publica';
-        
-        // Inicializar Supabase
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
-        // Elementos del DOM
-        const loginForm = document.getElementById('login-form');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const togglePasswordButton = document.getElementById('togglePassword');
-        const loginButton = document.getElementById('login-button');
-        const buttonText = document.getElementById('button-text');
-        const buttonLoader = document.getElementById('button-loader');
-        const messageDiv = document.getElementById('message');
-        const contactAdminLink = document.getElementById('contact-admin');
-        
-        // Mostrar/ocultar contraseña
-        togglePasswordButton.addEventListener('click', function() {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
-        });
+        // === CONFIGURACIÓN SUPABASE - UNA SOLA DECLARACIÓN ===
+        const SUPABASE_URL = 'https://nthowcrcdsgiaekedvzr.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50aG93Y3JjZHNnaWFla2VkdnpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTI3MjIsImV4cCI6MjA4MDY4ODcyMn0.BnqOeVPlBN52hxZWv88rohprQszE7ynnWrCpydDTYhY';
+
+        // Inicializar Supabase UNA VEZ
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('✅ Supabase inicializado');
         
         // Mostrar mensaje
         function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
             messageDiv.textContent = message;
             messageDiv.className = `message ${type}`;
             messageDiv.style.display = 'block';
@@ -93,35 +133,201 @@
             }
         }
         
-        // Manejar envío del formulario
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
+        // Mostrar/ocultar contraseña
+        document.getElementById('togglePassword').addEventListener('click', function() {
+            const passwordInput = document.getElementById('password');
+            const type = passwordInput.type === 'password' ? 'text' : 'password';
+            passwordInput.type = type;
+            this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+        });
+        
+        document.getElementById('toggleRegPassword').addEventListener('click', function() {
+            const passwordInput = document.getElementById('reg-password');
+            const type = passwordInput.type === 'password' ? 'text' : 'password';
+            passwordInput.type = type;
+            this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+        });
+        
+        // Cambiar entre pestañas
+        document.getElementById('tabLogin').addEventListener('click', function() {
+            this.classList.add('active');
+            document.getElementById('tabRegister').classList.remove('active');
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('register-form').style.display = 'none';
+        });
+        
+        document.getElementById('tabRegister').addEventListener('click', function() {
+            this.classList.add('active');
+            document.getElementById('tabLogin').classList.remove('active');
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'block';
+        });
+        
+        // === FUNCIÓN PARA CREAR CUENTA ===
+        async function crearCuenta() {
+            const nombre = document.getElementById('reg-nombre').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const confirmPassword = document.getElementById('reg-confirm-password').value;
+            const rol = document.getElementById('reg-rol').value;
             
-            const email = emailInput.value.trim();
-            const password = passwordInput.value;
+            console.log('Intentando crear cuenta:', { nombre, email, rol });
+            
+            // Validaciones
+            if (!nombre || !email || !password || !confirmPassword || !rol) {
+                showMessage('Por favor, completa todos los campos', 'error');
+                return false;
+            }
+            
+            if (password.length < 6) {
+                showMessage('La contraseña debe tener al menos 6 caracteres', 'error');
+                return false;
+            }
+            
+            if (password !== confirmPassword) {
+                showMessage('Las contraseñas no coinciden', 'error');
+                return false;
+            }
+            
+            // Mostrar loading
+            const btn = document.getElementById('register-button');
+            const btnText = document.getElementById('register-button-text');
+            const btnLoader = document.getElementById('register-button-loader');
+            
+            btn.disabled = true;
+            btnText.textContent = 'Creando...';
+            btnLoader.style.display = 'inline-block';
+            
+            try {
+                // 1. Verificar si el email ya existe
+                const { data: existingUser } = await supabaseClient
+                    .from('usuarios')
+                    .select('id')
+                    .eq('email', email)
+                    .single();
+                
+                if (existingUser) {
+                    throw new Error('Este email ya está registrado');
+                }
+                
+                // 2. Crear usuario
+                const { data: newUser, error: userError } = await supabaseClient
+                    .from('usuarios')
+                    .insert([{
+                        nombre: nombre,
+                        email: email,
+                        rol: rol,
+                        activo: true,
+                        creado_en: new Date().toISOString()
+                    }])
+                    .select()
+                    .single();
+                
+                if (userError) throw userError;
+                
+                // 3. Crear autenticación
+                const { error: authError } = await supabaseClient
+                    .from('auth_usuarios')
+                    .insert([{
+                        usuario_id: newUser.id,
+                        password_hash: password,
+                        intentos_login: 0
+                    }]);
+                
+                if (authError) throw authError;
+                
+                // Éxito
+                showMessage('¡Cuenta creada exitosamente! Ahora puedes iniciar sesión.', 'success');
+                
+                // Cambiar a login después de 2 segundos
+                setTimeout(() => {
+                    document.getElementById('tabLogin').click();
+                    document.getElementById('email').value = email;
+                    
+                    // Limpiar formulario
+                    document.getElementById('reg-nombre').value = '';
+                    document.getElementById('reg-email').value = '';
+                    document.getElementById('reg-password').value = '';
+                    document.getElementById('reg-confirm-password').value = '';
+                    document.getElementById('reg-rol').value = '';
+                    
+                    // Restaurar botón
+                    btn.disabled = false;
+                    btnText.textContent = 'Crear Cuenta';
+                    btnLoader.style.display = 'none';
+                }, 2000);
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Error creando cuenta:', error);
+                showMessage('Error: ' + error.message, 'error');
+                
+                // Restaurar botón
+                btn.disabled = false;
+                btnText.textContent = 'Crear Cuenta';
+                btnLoader.style.display = 'none';
+                
+                return false;
+            }
+        }
+        
+        // === FUNCIÓN PARA LOGIN ===
+        async function iniciarSesion() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
             
             if (!email || !password) {
                 showMessage('Por favor, completa todos los campos', 'error');
-                return;
+                return false;
             }
             
-            // Mostrar estado de carga
-            loginButton.disabled = true;
-            buttonText.textContent = 'Iniciando sesión...';
-            buttonLoader.style.display = 'inline-block';
+            // Mostrar loading
+            const btn = document.getElementById('login-button');
+            const btnText = document.getElementById('button-text');
+            const btnLoader = document.getElementById('button-loader');
+            
+            btn.disabled = true;
+            btnText.textContent = 'Iniciando...';
+            btnLoader.style.display = 'inline-block';
             
             try {
-                // Iniciar sesión con Supabase
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email,
-                    password
-                });
+                // 1. Buscar usuario
+                const { data: usuario, error: userError } = await supabaseClient
+                    .from('usuarios')
+                    .select('*')
+                    .eq('email', email)
+                    .eq('activo', true)
+                    .single();
                 
-                if (error) {
-                    throw error;
+                if (userError || !usuario) {
+                    throw new Error('Usuario no encontrado');
                 }
                 
-                // Mostrar mensaje de éxito
+                // 2. Verificar contraseña
+                const { data: authData, error: authError } = await supabaseClient
+                    .from('auth_usuarios')
+                    .select('*')
+                    .eq('usuario_id', usuario.id)
+                    .single();
+                
+                if (authError || !authData) {
+                    throw new Error('Error de autenticación');
+                }
+                
+                if (authData.password_hash !== password) {
+                    throw new Error('Contraseña incorrecta');
+                }
+                
+                // 3. Guardar sesión
+                localStorage.setItem('tallerhunter_user', JSON.stringify({
+                    id: usuario.id,
+                    nombre: usuario.nombre,
+                    email: usuario.email,
+                    rol: usuario.rol
+                }));
+                
+                // Éxito
                 showMessage('¡Inicio de sesión exitoso! Redirigiendo...', 'success');
                 
                 // Redirigir después de 2 segundos
@@ -129,54 +335,113 @@
                     window.location.href = 'dashboard.html';
                 }, 2000);
                 
+                return true;
+                
             } catch (error) {
-                let errorMessage = 'Error al iniciar sesión';
+                console.error('Error en login:', error);
+                showMessage('Error: ' + error.message, 'error');
                 
-                if (error.message.includes('Invalid login credentials')) {
-                    errorMessage = 'Credenciales incorrectas. Verifica tu email y contraseña.';
-                } else if (error.message.includes('Email not confirmed')) {
-                    errorMessage = 'Por favor, confirma tu email antes de iniciar sesión.';
-                } else if (error.message.includes('rate limit')) {
-                    errorMessage = 'Demasiados intentos. Por favor, espera unos minutos.';
-                } else {
-                    errorMessage = `Error: ${error.message}`;
-                }
+                // Restaurar botón
+                btn.disabled = false;
+                btnText.textContent = 'Iniciar Sesión';
+                btnLoader.style.display = 'none';
                 
-                showMessage(errorMessage, 'error');
-                
-                // Restablecer estado del botón
-                loginButton.disabled = false;
-                buttonText.textContent = 'Iniciar Sesión';
-                buttonLoader.style.display = 'none';
-            }
-        });
-        
-        // Contactar al administrador
-        contactAdminLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showMessage('Contacta al administrador del sistema para asistencia.', 'success');
-        });
-        
-        // Verificar si el usuario ya tiene una sesión activa
-        async function checkSession() {
-            try {
-                const { data, error } = await supabase.auth.getSession();
-                
-                if (error) {
-                    throw error;
-                }
-                
-                if (data.session) {
-                    // El usuario ya tiene sesión activa
-                    window.location.href = 'dashboard.html';
-                }
-            } catch (error) {
-                console.log('No hay sesión activa');
+                return false;
             }
         }
         
-        // Verificar sesión al cargar la página
-        checkSession();
+        // === EVENT LISTENERS PARA LOS FORMULARIOS ===
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            iniciarSesion();
+        });
+        
+        document.getElementById('register-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            crearCuenta();
+        });
+        
+        // Contactar administrador
+        document.getElementById('contact-admin').addEventListener('click', function(e) {
+            e.preventDefault();
+            showMessage('Contacta al administrador: admin@tallerhunter.com', 'info');
+        });
+        
+        // Verificar si ya hay sesión
+        function verificarSesion() {
+            const userData = localStorage.getItem('tallerhunter_user');
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    showMessage(`Bienvenido de nuevo ${user.nombre}. Redirigiendo...`, 'success');
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } catch (error) {
+                    localStorage.removeItem('tallerhunter_user');
+                }
+            }
+        }
+        
+        // Inicializar
+        verificarSesion();
     </script>
+    
+    <style>
+        /* Estilos para las tabs */
+        .tabs-login {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        
+        .tab-login {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.3s;
+        }
+        
+        .tab-login.active {
+            color: #2c3e50;
+            border-bottom-color: #2c3e50;
+        }
+        
+        .tab-login:hover:not(.active) {
+            color: #3b82f6;
+        }
+        
+        /* Estilos para el select */
+        .form-select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+            background-color: #fdfdfd;
+            color: #333;
+            margin-top: 5px;
+        }
+        
+        .form-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* Botón de registro */
+        .btn-register {
+            background-color: #28a745 !important;
+        }
+        
+        .btn-register:hover {
+            background-color: #218838 !important;
+        }
+    </style>
 </body>
 </html>
