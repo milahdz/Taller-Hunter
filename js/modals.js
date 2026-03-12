@@ -13,7 +13,10 @@ const ModalManager = {
             tomorrow.setDate(tomorrow.getDate() + 1);
             dateInput.value = tomorrow.toISOString().split('T')[0];
         }
+        
     },
+
+    
     
     // Modal de agendamiento
     openScheduleModal: (serviceData = null) => {
@@ -554,3 +557,25 @@ if (typeof module !== 'undefined' && module.exports) {
 } else {
     window.ModalManager = ModalManager;
 }
+// Aqui se conecta a la pagina usando "Fetch" para poner el link, esto recibe las frases en formato JSON
+fetch("https://zenquotes.io/api/random")
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById("frase").textContent = data[0].q;
+    document.getElementById("autor").textContent = "- " + data[0].a;
+  });
+  
+  function cargarFrase() {
+  fetch("https://api.quotable.io/random")
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("frase").textContent = '"' + data.content + '"';
+      document.getElementById("autor").textContent = "- " + data.author;
+    });
+}
+
+// cargar una frase cuando abre la página
+cargarFrase();
+
+// cuando se presione el botón
+document.getElementById("btnFrase").addEventListener("click", cargarFrase);

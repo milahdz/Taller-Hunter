@@ -298,3 +298,4 @@ function actualizarEstadisticas() {
         if (el) el.textContent = elementos[id];
     });
 }
+

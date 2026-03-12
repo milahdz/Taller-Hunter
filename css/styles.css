@@ -903,4 +903,23 @@ input[list] {
         display: block;
         overflow-x: auto;
     }
+    .quote-box{
+  max-width:500px;
+  margin:40px auto;
+  padding:20px;
+  background:#f4f4f4;
+  border-radius:10px;
+  text-align:center;
+  font-family:Arial;
+}
+
+#frase{
+  font-size:18px;
+  margin:15px 0;
+}
+
+#autor{
+  font-style:italic;
+  color:#555;
+ }
 }
