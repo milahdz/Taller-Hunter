@@ -1,101 +1,213 @@
-// main.js - VERSIÓN COMPLETA CON VEHÍCULOS, CLIENTES Y SERVICIOS
+// main.js - VERSIÓN COMPLETA
+
+// ── Confirmación global ───────────────────────────────────────────────────────
+const Confirmacion = {
+    _resolver: null,
+
+    mostrar(mensaje) {
+        return new Promise(resolve => {
+            Confirmacion._resolver = resolve;
+            const msg = document.getElementById('confirmMsg');
+            if (msg) msg.textContent = mensaje || '¿Estás seguro de realizar esta acción?';
+            const modal = document.getElementById('confirmModal');
+            if (modal) modal.style.display = 'flex';
+        });
+    },
+
+    _responder(valor) {
+        const modal = document.getElementById('confirmModal');
+        if (modal) modal.style.display = 'none';
+        if (Confirmacion._resolver) {
+            Confirmacion._resolver(valor);
+            Confirmacion._resolver = null;
+        }
+    }
+};
+
+// Silence all native confirm() dialogs — our custom modal already asked
+window.confirm = () => true;
+
+// Wires the two confirm-modal buttons (called once after DOM ready)
+function setupConfirmModal() {
+    document.getElementById('confirmOkBtn')
+        ?.addEventListener('click', () => Confirmacion._responder(true));
+    document.getElementById('confirmCancelBtn')
+        ?.addEventListener('click', () => Confirmacion._responder(false));
+}
+
+// Buttons that should NOT trigger confirmation (non-destructive actions)
+function shouldSkipConfirm(btn) {
+    if (btn.closest('#confirmModal')) return true;
+    if (btn.classList.contains('close-modal')) return true;
+    if (btn.classList.contains('view-btn') || btn.getAttribute('data-view')) return true;
+    if (btn.classList.contains('notification-close')) return true;
+    // Edit buttons just open modals — not destructive
+    if (btn.classList.contains('btn-edit') || btn.classList.contains('svc-btn-edit')) return true;
+    const skipIds = [
+        'cancelBtn','cancelVehiculoBtn','cancelClienteBtn','cancelServicioBtn','cancelEmpleadoBtn',
+        'addVehicleBtn','addVehiculoBtn','addClienteBtn','addServicioBtn','addEmpleadoBtn',
+        'printBtn','confirmCancelBtn','confirmOkBtn',
+        'savePerfilBtn','savePasswordBtn','saveTallerBtn','saveConfigBtn','saveHorariosBtn',
+        'themeToggle'
+    ];
+    return skipIds.includes(btn.id);
+}
+
+// Global interceptor: consequential button clicks go through confirmation first
+let _trustedClick = false;
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn || _trustedClick) return;
+    if (shouldSkipConfirm(btn)) return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    const confirmado = await Confirmacion.mostrar('¿Estás seguro de realizar esta acción?');
+    if (confirmado) {
+        _trustedClick = true;
+        btn.click();
+        _trustedClick = false;
+    }
+}, true);
+
+// ── Loading overlay ───────────────────────────────────────────────────────────
+function showLoading() {
+    const el = document.getElementById('loadingOverlay');
+    if (el) el.style.display = 'flex';
+}
+function hideLoading() {
+    const el = document.getElementById('loadingOverlay');
+    if (el) el.style.display = 'none';
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Normalize DB status strings to internal keys
+function normalizeStatus(estado) {
+    const map = {
+        'Pendiente':'pending','En Proceso':'process','En proceso':'process',
+        'Completado':'completed','completado':'completed',
+        'Cancelado':'cancelled','cancelado':'cancelled',
+        'pending':'pending','process':'process','completed':'completed','cancelled':'cancelled'
+    };
+    return map[estado] || 'pending';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('=== TALLER HUNTER - INICIANDO ===');
+    console.log('=== TALLER HUNTER ===');
+    // Apply persisted theme
+    const savedTheme = localStorage.getItem('th_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    // Apply persisted admin name
+    const savedName = localStorage.getItem('th_admin_name');
+    if (savedName) {
+        const nameEl   = document.querySelector('.user-name');
+        const avatarEl = document.querySelector('.user-avatar');
+        if (nameEl)   nameEl.textContent   = savedName;
+        if (avatarEl) avatarEl.textContent  = savedName.substring(0,2).toUpperCase();
+    }
+    setupConfirmModal();
     await initApp();
     setupEventListeners();
+    setupModalListeners();
     console.log('=== SISTEMA LISTO ===');
 });
 
-// ==================== INICIALIZACIÓN ====================
 async function initApp() {
+    showLoading();
     const fechaInput = document.getElementById('fecha');
-    if (fechaInput) {
-        fechaInput.min = new Date().toISOString().split('T')[0];
-    }
-    await cargarTodosLosDatos();
+    if (fechaInput) fechaInput.min = new Date().toISOString().split('T')[0];
+    await cargarDatosReales();
+    hideLoading();
     cargarPagina('agenda');
 }
 
-async function cargarTodosLosDatos() {
-    if (!window.supabase) {
-        console.warn('⚠️ Supabase no disponible');
-        return;
-    }
+async function cargarDatosReales() {
+    if (!window.supabase) { console.log('Supabase no disponible'); return; }
     try {
         const [servicios, clientes, vehiculos, tiposServicio, empleados] = await Promise.all([
             DB.getServicios(),
-            DB.getClientes(),
-            DB.getVehiculos(),
-            DB.getTiposServicio(),
-            DB.getEmpleados()
+            DB.getTodosClientes(),
+            DB.getTodosVehiculos(),
+            DB.getTodosTiposServicio(),
+            DB.getTodosEmpleados()
         ]);
 
-        // Mapear servicios al formato interno
-        DataStore.services = servicios.map(s => ({
-            id: s.id,
-            vehicle: s.vehiculo || s.vehiculo_id || 'N/A',
-            owner: s.cliente || s.cliente_id || 'N/A',
-            date: s.fecha || new Date().toISOString().split('T')[0],
-            service: s.tipo_servicio || s.tipo_servicio_id || 'N/A',
-            phone: s.telefono || 'No disponible',
-            time: s.hora || '08:00',
-            employee: s.empleado || s.empleado_id || 'No asignado',
-            status: s.estado || 'pending',
-            notes: s.notas || ''
-        }));
+        DataStore.services = servicios.map(s => {
+            // Resolve names: prefer text columns stored alongside FKs,
+            // fall back to cross-referencing the loaded tables
+            const vObj = vehiculos.find(v => String(v.id) === String(s.vehiculo_id));
+            const cObj = clientes.find(c => c.id === s.cliente_id);
+            const tObj = tiposServicio.find(t => t.id === s.tipo_servicio_id);
+            const eObj = empleados.find(e => String(e.id) === String(s.empleado_id));
+            return {
+                id:       s.id,
+                vehicle:  s.placa         || (vObj ? vObj.placa   : s.vehiculo_id  || 'N/A'),
+                owner:    s.propietario   || (cObj ? cObj.nombre  : 'N/A'),
+                date:     s.fecha         || new Date().toISOString().split('T')[0],
+                service:  s.tipo_servicio || (tObj ? tObj.nombre  : 'N/A'),
+                phone:    s.telefono      || (cObj ? cObj.telefono : 'No disponible'),
+                time:     s.hora          || '08:00',
+                employee: s.empleado      || (eObj ? eObj.nombre  : 'Sin asignar'),
+                status:   normalizeStatus(s.estado),
+                notes:    s.notas || ''
+            };
+        });
 
-        // Mapear clientes
         DataStore.clientes = clientes.map(c => ({
             id: c.id,
-            nombre: c.nombre || c.id,
+            nombre: c.nombre || '',
             telefono: c.telefono || '',
             email: c.email || '',
             direccion: c.direccion || '',
             notas: c.notas || ''
         }));
 
-        // Mapear vehículos
         DataStore.vehiculos = vehiculos.map(v => ({
             id: v.id,
-            placa: v.placa || v.id,
+            placa: v.placa || '',
             marca: v.marca || '',
             modelo: v.modelo || '',
-            año: v.año || v.anio || '',
+            año: v.año || '',
             color: v.color || '',
             clienteId: v.cliente_id || '',
             kilometraje: v.kilometraje || '',
             notas: v.notas || ''
         }));
 
-        // Mapear tipos de servicio
         DataStore.tiposServicio = tiposServicio.map(t => ({
             id: t.id,
-            nombre: t.nombre || t.descripcion || t.id,
+            nombre: t.nombre || t.descripcion || 'Sin nombre',
             descripcion: t.descripcion || '',
-            precio: t.precio || t.precio_base || 0,
+            precio: t.precio ?? t.precio_base ?? 0,
             duracion: t.duracion || '',
-            categoria: t.categoria || 'General'
+            categoria: t.categoria || ''
         }));
 
-        // Mapear empleados
         DataStore.empleados = empleados.map(e => ({
             id: e.id,
-            nombre: e.nombre || e.id,
+            nombre: e.nombre || '',
             especialidad: e.especialidad || '',
             telefono: e.telefono || '',
             email: e.email || '',
             horario: e.horario || ''
         }));
 
-        console.log(`✅ Datos cargados — Servicios: ${DataStore.services.length}, Clientes: ${DataStore.clientes.length}, Vehículos: ${DataStore.vehiculos.length}`);
         actualizarEstadisticas();
-
+        console.log('✅ Datos cargados:', {
+            servicios: DataStore.services.length,
+            clientes: DataStore.clientes.length,
+            vehiculos: DataStore.vehiculos.length,
+            tipos: DataStore.tiposServicio.length,
+            empleados: DataStore.empleados.length
+        });
     } catch (error) {
-        console.error('❌ Error cargando datos:', error);
+        console.error('Error cargando datos:', error);
     }
 }
 
-// ==================== EVENTOS GLOBALES ====================
+// ===== NAVEGACIÓN Y EVENTOS ESTÁTICOS =====
+
 function setupEventListeners() {
     // Navegación
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -111,111 +223,425 @@ function setupEventListeners() {
     // Tabs de agenda
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
+            const tabId = tab.getAttribute('data-tab');
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            AppState.currentTab = tab.getAttribute('data-tab');
+            AppState.currentTab = tabId;
             if (AppState.currentPage === 'agenda') renderAgenda();
         });
     });
 
-    // Botones de vista (lista/semana/calendario)
+    // Vistas de agenda
     document.querySelectorAll('#agendaContent .view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            const view = btn.getAttribute('data-view');
             document.querySelectorAll('#agendaContent .view-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            AppState.currentView = btn.getAttribute('data-view');
-            if (AppState.currentPage === 'agenda') cambiarVistaAgenda(AppState.currentView);
+            AppState.currentView = view;
+            if (AppState.currentPage === 'agenda') cambiarVistaAgenda(view);
         });
     });
 
-    // Botones de vista en reportes
+    // Botones "Nuevo" en el HTML estático
+    const addVehiculoBtn = document.getElementById('addVehiculoBtn');
+    if (addVehiculoBtn) addVehiculoBtn.addEventListener('click', () => ModalManager.openVehiculoModal());
+
+    const addClienteBtn = document.getElementById('addClienteBtn');
+    if (addClienteBtn) addClienteBtn.addEventListener('click', () => ModalManager.openClienteModal());
+
+    const addServicioBtn = document.getElementById('addServicioBtn');
+    if (addServicioBtn) addServicioBtn.addEventListener('click', () => ModalManager.openServicioModal());
+
+    // Tabs de reportes
     document.querySelectorAll('[data-report]').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-report]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            UIManager.renderReportes(btn.getAttribute('data-report'), document.getElementById('reportesContentArea'));
+            AppState.currentReport = btn.getAttribute('data-report');
+            if (AppState.currentPage === 'reportes') renderReportes();
         });
     });
 
-    // Botones de vista en configuración
+    // Tabs de configuración
     document.querySelectorAll('[data-config]').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-config]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            UIManager.renderConfiguracion(btn.getAttribute('data-config'), document.getElementById('configuracionArea'));
-            setupConfigEventListeners();
+            AppState.currentConfig = btn.getAttribute('data-config');
+            if (AppState.currentPage === 'configuracion') renderConfiguracion();
         });
     });
 }
 
-// ==================== NAVEGACIÓN DE PÁGINAS ====================
-function cargarPagina(pagina) {
-    AppState.currentPage = pagina;
+// ===== MODALES =====
 
+function setupModalListeners() {
+    // Botones cerrar (X)
+    const cierres = {
+        'closeVehiculoModal': 'vehiculoModal',
+        'closeClienteModal':  'clienteModal',
+        'closeServicioModal': 'servicioModal',
+        'closeEmpleadoModal': 'empleadoModal'
+    };
+    Object.entries(cierres).forEach(([btnId, modalId]) => {
+        const btn = document.getElementById(btnId);
+        if (btn) btn.addEventListener('click', () => cerrarModal(modalId));
+    });
+
+    // Botones cancelar
+    const cancelaciones = {
+        'cancelVehiculoBtn': 'vehiculoModal',
+        'cancelClienteBtn':  'clienteModal',
+        'cancelServicioBtn': 'servicioModal',
+        'cancelEmpleadoBtn': 'empleadoModal'
+    };
+    Object.entries(cancelaciones).forEach(([btnId, modalId]) => {
+        const btn = document.getElementById(btnId);
+        if (btn) btn.addEventListener('click', () => cerrarModal(modalId));
+    });
+
+    // Click fuera del modal
+    ['vehiculoModal', 'clienteModal', 'servicioModal', 'empleadoModal'].forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) cerrarModal(modalId); });
+    });
+
+    // Evitar envío nativo de formularios
+    ['vehiculoForm', 'clienteForm', 'servicioForm', 'empleadoForm'].forEach(formId => {
+        const form = document.getElementById(formId);
+        if (form) form.addEventListener('submit', e => e.preventDefault());
+    });
+
+    // Botones guardar (async)
+    const saveVehiculoBtn = document.getElementById('saveVehiculoBtn');
+    if (saveVehiculoBtn) saveVehiculoBtn.addEventListener('click', guardarVehiculo);
+
+    const saveClienteBtn = document.getElementById('saveClienteBtn');
+    if (saveClienteBtn) saveClienteBtn.addEventListener('click', guardarCliente);
+
+    const saveServicioBtn = document.getElementById('saveServicioBtn');
+    if (saveServicioBtn) saveServicioBtn.addEventListener('click', guardarServicio);
+
+    const saveEmpleadoBtn = document.getElementById('saveEmpleadoBtn');
+    if (saveEmpleadoBtn) saveEmpleadoBtn.addEventListener('click', guardarEmpleado);
+}
+
+function cerrarModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'none';
+    const formId = modalId.replace('Modal', 'Form');
+    const form = document.getElementById(formId);
+    if (form) form.reset();
+    AppState.editingVehiculoId = null;
+    AppState.editingClienteId = null;
+    AppState.editingServicioId = null;
+    AppState.editingEmpleadoId = null;
+}
+
+// ===== GUARDAR ASYNC =====
+
+async function guardarVehiculo() {
+    const form = document.getElementById('vehiculoForm');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+
+    const data = {
+        placa:       document.getElementById('vehiculoPlaca').value,
+        marca:       document.getElementById('vehiculoMarca').value,
+        modelo:      document.getElementById('vehiculoModelo').value,
+        año:         document.getElementById('vehiculoAnio').value || '',
+        color:       document.getElementById('vehiculoColor').value || '',
+        clienteId:   document.getElementById('vehiculoCliente').value,
+        kilometraje: document.getElementById('vehiculoKilometraje').value || '',
+        notas:       document.getElementById('vehiculoNotas').value || ''
+    };
+
+    const btn = document.getElementById('saveVehiculoBtn');
+    btn.disabled = true;
+    try {
+        if (AppState.editingVehiculoId) {
+            await VehiculoManager.updateVehiculo(AppState.editingVehiculoId, data);
+            UIManager.showNotification('Vehículo actualizado correctamente', 'success');
+        } else {
+            await VehiculoManager.createVehiculo(data);
+            UIManager.showNotification('Vehículo creado correctamente', 'success');
+        }
+        cerrarModal('vehiculoModal');
+        renderVehiculos();
+    } catch (e) { /* manejado en el manager */ }
+    finally { btn.disabled = false; }
+}
+
+async function guardarCliente() {
+    const form = document.getElementById('clienteForm');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+
+    const data = {
+        nombre:    document.getElementById('clienteNombre').value,
+        telefono:  document.getElementById('clienteTelefono').value,
+        email:     document.getElementById('clienteEmail').value || '',
+        direccion: document.getElementById('clienteDireccion').value || '',
+        notas:     document.getElementById('clienteNotas').value || ''
+    };
+
+    const btn = document.getElementById('saveClienteBtn');
+    btn.disabled = true;
+    try {
+        if (AppState.editingClienteId) {
+            await ClienteManager.updateCliente(AppState.editingClienteId, data);
+            UIManager.showNotification('Cliente actualizado correctamente', 'success');
+        } else {
+            await ClienteManager.createCliente(data);
+            UIManager.showNotification('Cliente creado correctamente', 'success');
+        }
+        cerrarModal('clienteModal');
+        renderClientes();
+    } catch (e) { /* manejado en el manager */ }
+    finally { btn.disabled = false; }
+}
+
+async function guardarServicio() {
+    const form = document.getElementById('servicioForm');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+
+    const data = {
+        nombre:      document.getElementById('servicioNombre').value,
+        descripcion: document.getElementById('servicioDescripcion').value || '',
+        precio:      parseFloat(document.getElementById('servicioPrecio').value),
+        duracion:    document.getElementById('servicioDuracion').value || '',
+        categoria:   document.getElementById('servicioCategoria').value || ''
+    };
+
+    const btn = document.getElementById('saveServicioBtn');
+    btn.disabled = true;
+    try {
+        if (AppState.editingServicioId) {
+            await ServicioManager.updateServicio(AppState.editingServicioId, data);
+            UIManager.showNotification('Servicio actualizado correctamente', 'success');
+        } else {
+            await ServicioManager.createServicio(data);
+            UIManager.showNotification('Servicio creado correctamente', 'success');
+        }
+        cerrarModal('servicioModal');
+        renderServicios();
+    } catch (e) { /* manejado en el manager */ }
+    finally { btn.disabled = false; }
+}
+
+async function guardarEmpleado() {
+    const form = document.getElementById('empleadoForm');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+
+    const data = {
+        nombre:       document.getElementById('empleadoNombre').value,
+        especialidad: document.getElementById('empleadoEspecialidad').value || '',
+        telefono:     document.getElementById('empleadoTelefono').value || '',
+        email:        document.getElementById('empleadoEmail').value || '',
+        horario:      document.getElementById('empleadoHorario').value || ''
+    };
+
+    const btn = document.getElementById('saveEmpleadoBtn');
+    btn.disabled = true;
+    try {
+        if (AppState.editingEmpleadoId) {
+            await EmpleadoManager.updateEmpleado(AppState.editingEmpleadoId, data);
+            UIManager.showNotification('Empleado actualizado correctamente', 'success');
+        } else {
+            await EmpleadoManager.createEmpleado(data);
+            UIManager.showNotification('Empleado creado correctamente', 'success');
+        }
+        cerrarModal('empleadoModal');
+        renderConfiguracion();
+    } catch (e) { /* manejado en el manager */ }
+    finally { btn.disabled = false; }
+}
+
+// ===== NAVEGACIÓN DE PÁGINAS =====
+
+function cargarPagina(pagina) {
     document.querySelectorAll('#dynamicContent > .content-area').forEach(el => {
         el.style.display = 'none';
     });
+    AppState.currentPage = pagina;
 
     const statsContainer = document.getElementById('statsContainer');
-    const tabsContainer = document.getElementById('tabsContainer');
-    const addVehicleBtn = document.getElementById('addVehicleBtn');
-    const printBtn = document.getElementById('printBtn');
-    const pageTitle = document.getElementById('pageTitle');
+    const tabsContainer  = document.getElementById('tabsContainer');
 
-    // Ocultar elementos de agenda por defecto
-    if (statsContainer) statsContainer.style.display = 'none';
-    if (tabsContainer) tabsContainer.style.display = 'none';
-    if (addVehicleBtn) addVehicleBtn.style.display = 'none';
-    if (printBtn) printBtn.style.display = 'none';
-
-    switch (pagina) {
-        case 'agenda':
-            document.getElementById('agendaContent').style.display = 'block';
-            if (statsContainer) statsContainer.style.display = 'grid';
-            if (tabsContainer) tabsContainer.style.display = 'flex';
-            if (addVehicleBtn) addVehicleBtn.style.display = 'inline-flex';
-            if (pageTitle) pageTitle.textContent = 'Sistema de Gestión de Agenda';
-            actualizarEstadisticas();
-            renderAgenda();
-            break;
-
-        case 'vehiculos':
-            document.getElementById('vehiculosContent').style.display = 'block';
-            if (pageTitle) pageTitle.textContent = 'Gestión de Vehículos';
-            renderVehiculos();
-            setupVehiculosEventListeners();
-            break;
-
-        case 'clientes':
-            document.getElementById('clientesContent').style.display = 'block';
-            if (pageTitle) pageTitle.textContent = 'Gestión de Clientes';
-            renderClientes();
-            setupClientesEventListeners();
-            break;
-
-        case 'servicios':
-            document.getElementById('serviciosContent').style.display = 'block';
-            if (pageTitle) pageTitle.textContent = 'Tipos de Servicios';
-            renderServicios();
-            setupServiciosEventListeners();
-            break;
-
-        case 'reportes':
-            document.getElementById('reportesContent').style.display = 'block';
-            if (pageTitle) pageTitle.textContent = 'Reportes y Estadísticas';
-            UIManager.renderReportes('diario', document.getElementById('reportesContentArea'));
-            break;
-
-        case 'configuracion':
-            document.getElementById('configuracionContent').style.display = 'block';
-            if (pageTitle) pageTitle.textContent = 'Configuración del Sistema';
-            UIManager.renderConfiguracion('empleados', document.getElementById('configuracionArea'));
-            setupConfigEventListeners();
-            break;
+    if (pagina === 'agenda') {
+        document.getElementById('agendaContent').style.display = 'block';
+        if (statsContainer) statsContainer.style.display = 'grid';
+        if (tabsContainer)  tabsContainer.style.display  = 'flex';
+        renderAgenda();
+        actualizarEstadisticas();
+    } else {
+        if (statsContainer) statsContainer.style.display = 'none';
+        if (tabsContainer)  tabsContainer.style.display  = 'none';
+        document.getElementById(`${pagina}Content`).style.display = 'block';
+        switch (pagina) {
+            case 'vehiculos':     renderVehiculos();    break;
+            case 'clientes':      renderClientes();     break;
+            case 'servicios':     renderServicios();    break;
+            case 'reportes':      renderReportes();     break;
+            case 'configuracion': renderConfiguracion(); break;
+        }
     }
 }
 
-// ==================== AGENDA ====================
+// ===== RENDER DE SECCIONES =====
+
+function renderVehiculos() {
+    const buttons = UIManager.renderVehiculos(DataStore.vehiculos, document.getElementById('vehiculosList'));
+    if (!buttons) return;
+    buttons.editBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const vehiculo = DataUtils.findVehiculoById(e.currentTarget.getAttribute('data-id'));
+            if (vehiculo) ModalManager.openVehiculoModal(vehiculo);
+        });
+    });
+    buttons.deleteBtns.forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            if (!confirm('¿Eliminar este vehículo?')) return;
+            await VehiculoManager.deleteVehiculo(id);
+            UIManager.showNotification('Vehículo eliminado', 'success');
+            renderVehiculos();
+        });
+    });
+}
+
+function renderClientes() {
+    const buttons = UIManager.renderClientes(DataStore.clientes, document.getElementById('clientesList'));
+    if (!buttons) return;
+    buttons.editBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const cliente = DataUtils.findClienteById(e.currentTarget.getAttribute('data-id'));
+            if (cliente) ModalManager.openClienteModal(cliente);
+        });
+    });
+    buttons.deleteBtns.forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            if (DataStore.vehiculos.some(v => v.clienteId === id)) {
+                alert('No se puede eliminar: el cliente tiene vehículos asociados.');
+                return;
+            }
+            if (!confirm('¿Eliminar este cliente?')) return;
+            await ClienteManager.deleteCliente(id);
+            UIManager.showNotification('Cliente eliminado', 'success');
+            renderClientes();
+        });
+    });
+}
+
+function renderServicios() {
+    const buttons = UIManager.renderServicios(DataStore.tiposServicio, document.getElementById('serviciosList'));
+    if (!buttons) return;
+    buttons.editBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const servicio = DataUtils.findServicioById(e.currentTarget.getAttribute('data-id'));
+            if (servicio) ModalManager.openServicioModal(servicio);
+        });
+    });
+    buttons.deleteBtns.forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            if (!confirm('¿Eliminar este tipo de servicio?')) return;
+            await ServicioManager.deleteServicio(id);
+            UIManager.showNotification('Servicio eliminado', 'success');
+            renderServicios();
+        });
+    });
+}
+
+function renderReportes() {
+    UIManager.renderReportes(
+        AppState.currentReport || 'diario',
+        document.getElementById('reportesContentArea')
+    );
+}
+
+function renderConfiguracion() {
+    const tipo = AppState.currentConfig || 'perfil';
+    UIManager.renderConfiguracion(tipo, document.getElementById('configuracionArea'));
+
+    if (tipo === 'perfil') {
+        document.getElementById('savePerfilBtn')?.addEventListener('click', () => {
+            const name  = document.getElementById('cfgNombre')?.value.trim();
+            const email = document.getElementById('cfgEmail')?.value.trim();
+            if (!name) { UIManager.showNotification('El nombre no puede estar vacío', 'error'); return; }
+            localStorage.setItem('th_admin_name', name);
+            localStorage.setItem('th_admin_email', email);
+            const nameEl   = document.querySelector('.user-name');
+            const avatarEl = document.querySelector('.user-avatar');
+            if (nameEl)   nameEl.textContent   = name;
+            if (avatarEl) avatarEl.textContent  = name.substring(0,2).toUpperCase();
+            UIManager.showNotification('Perfil actualizado correctamente', 'success');
+        });
+
+        document.getElementById('savePasswordBtn')?.addEventListener('click', () => {
+            const nueva     = document.getElementById('cfgPassNueva')?.value;
+            const confirmar = document.getElementById('cfgPassConfirmar')?.value;
+            if (!nueva || nueva.length < 6) { UIManager.showNotification('La contraseña debe tener al menos 6 caracteres', 'error'); return; }
+            if (nueva !== confirmar)         { UIManager.showNotification('Las contraseñas no coinciden', 'error'); return; }
+            localStorage.setItem('th_admin_pass', nueva);
+            ['cfgPassActual','cfgPassNueva','cfgPassConfirmar'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            UIManager.showNotification('Contraseña actualizada correctamente', 'success');
+        });
+
+        document.getElementById('themeToggle')?.addEventListener('change', (e) => {
+            const theme = e.target.checked ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('th_theme', theme);
+        });
+
+    } else if (tipo === 'taller') {
+        document.getElementById('saveTallerBtn')?.addEventListener('click', () => {
+            const data = {
+                nombre:    document.getElementById('tallerNombre')?.value   || '',
+                telefono:  document.getElementById('tallerTelefono')?.value || '',
+                direccion: document.getElementById('tallerDireccion')?.value|| '',
+                email:     document.getElementById('tallerEmail')?.value    || '',
+                apertura:  document.getElementById('tallerApertura')?.value || '08:00',
+                cierre:    document.getElementById('tallerCierre')?.value   || '18:00'
+            };
+            localStorage.setItem('th_taller', JSON.stringify(data));
+            if (data.nombre) {
+                const logoEl = document.querySelector('.logo h1');
+                if (logoEl) logoEl.textContent = data.nombre;
+            }
+            UIManager.showNotification('Información del taller guardada', 'success');
+        });
+
+    } else if (tipo === 'empleados') {
+        document.getElementById('addEmpleadoBtn')?.addEventListener('click', () => ModalManager.openEmpleadoModal());
+        document.querySelectorAll('[data-type="empleado"].btn-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const emp = DataUtils.findEmpleadoById(e.currentTarget.getAttribute('data-id'));
+                if (emp) ModalManager.openEmpleadoModal(emp);
+            });
+        });
+        document.querySelectorAll('[data-type="empleado"].btn-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                await EmpleadoManager.deleteEmpleado(id);
+                UIManager.showNotification('Empleado eliminado', 'success');
+                renderConfiguracion();
+            });
+        });
+
+    } else if (tipo === 'general') {
+        document.getElementById('saveConfigBtn')?.addEventListener('click', () => {
+            ModalManager.saveConfigGeneral?.();
+        });
+
+    } else if (tipo === 'horarios') {
+        document.getElementById('saveHorariosBtn')?.addEventListener('click', () => {
+            ModalManager.saveConfigHorarios?.();
+        });
+    }
+}
+
+// ===== AGENDA =====
+
 function renderAgenda() {
     if (AppState.currentView === 'list') {
         renderListaServicios();
@@ -236,54 +662,87 @@ function renderListaServicios() {
     if (servicios.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
-                <i class="fas fa-calendar-alt"></i>
+                <i class="fas fa-car"></i>
                 <h4>No hay servicios agendados</h4>
-                <p>${AppState.currentTab === 'all' ? 'Usa "Agendar Vehículo" para comenzar' : 'No hay servicios en este estado'}</p>
+                <p>${AppState.currentTab === 'all' ? 'Usa el botón "Agendar Vehículo" para comenzar' : `No hay servicios ${DataUtils.getTabName(AppState.currentTab)}`}</p>
             </div>`;
         return;
     }
 
-    const btns = UIManager.renderServicesTable(servicios, container);
-    if (btns) {
-        btns.completeBtns.forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const id = btn.getAttribute('data-id');
-                if (confirm('¿Marcar este servicio como completado?')) {
-                    await ServiceManager.completeService(id);
-                    UIManager.showNotification('Servicio completado', 'success');
-                    actualizarEstadisticas();
-                    renderListaServicios();
-                }
-            });
+    const statusMap = {
+        pending:   { cls:'status-pending',    txt:'Pendiente',  icon:'fas fa-clock' },
+        process:   { cls:'status-in-process', txt:'En Proceso', icon:'fas fa-tools' },
+        completed: { cls:'status-completed',  txt:'Completado', icon:'fas fa-check-circle' },
+        cancelled: { cls:'status-cancelled',  txt:'Cancelado',  icon:'fas fa-ban' }
+    };
+
+    let html = `
+        <div class="table-responsive">
+            <table class="services-table">
+                <thead>
+                    <tr>
+                        <th>Vehículo</th><th>Propietario</th><th>Fecha</th><th>Hora</th>
+                        <th>Servicio</th><th>Empleado</th><th>Teléfono</th><th>Estado</th>
+                        <th style="text-align:center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+    servicios.forEach(s => {
+        const st = statusMap[s.status] || statusMap.pending;
+        const hora = s.time ? s.time.substring(0,5) : '--:--';
+        html += `
+            <tr>
+                <td><strong>${s.vehicle}</strong></td>
+                <td>${s.owner}</td>
+                <td>${DataUtils.formatDate(s.date)}</td>
+                <td>${hora}</td>
+                <td>${s.service}</td>
+                <td>${s.employee || 'Sin asignar'}</td>
+                <td>${s.phone}</td>
+                <td><span class="service-status ${st.cls}"><i class="${st.icon}"></i>${st.txt}</span></td>
+                <td>
+                    <div class="action-buttons" style="justify-content:center;">
+                        ${s.status !== 'completed' ? `<button class="action-btn-icon btn-complete" data-id="${s.id}" title="Completar"><i class="fas fa-check"></i></button>` : ''}
+                        <button class="action-btn-icon btn-delete" data-id="${s.id}" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+    container.innerHTML = html;
+
+    // Wire action buttons
+    container.querySelectorAll('.btn-complete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            await ServiceManager.updateService(id, { estado: 'Completado' });
+            await cargarDatosReales();
+            renderListaServicios();
+            actualizarEstadisticas();
+            UIManager.showNotification('Servicio marcado como completado', 'success');
         });
-        btns.editBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const id = btn.getAttribute('data-id');
-                const servicio = DataUtils.findServiceById(id);
-                if (servicio) ModalManager.openScheduleModal(servicio);
-            });
+    });
+    container.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            await ServiceManager.deleteService(id);
+            await cargarDatosReales();
+            renderListaServicios();
+            actualizarEstadisticas();
+            UIManager.showNotification('Registro eliminado', 'success');
         });
-        btns.deleteBtns.forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const id = btn.getAttribute('data-id');
-                if (confirm('¿Eliminar este servicio?')) {
-                    await ServiceManager.deleteService(id);
-                    UIManager.showNotification('Servicio eliminado', 'success');
-                    actualizarEstadisticas();
-                    renderListaServicios();
-                }
-            });
-        });
-    }
+    });
 }
 
 function cambiarVistaAgenda(vista) {
-    ['listView', 'weekView', 'calendarView'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
-
-    const servicios = DataUtils.filterServices(AppState.currentTab);
+    AppState.currentView = vista;
+    document.getElementById('listView').style.display = 'none';
+    const weekView     = document.getElementById('weekView');
+    const calendarView = document.getElementById('calendarView');
+    if (weekView)     weekView.style.display     = 'none';
+    if (calendarView) calendarView.style.display = 'none';
 
     switch (vista) {
         case 'list':
@@ -291,567 +750,40 @@ function cambiarVistaAgenda(vista) {
             renderListaServicios();
             break;
         case 'week':
-            const wv = document.getElementById('weekView');
-            if (wv) {
-                wv.style.display = 'block';
-                CalendarManager.setupWeekView(wv.querySelector('.calendar-container'), servicios);
+            if (weekView) {
+                weekView.style.display = 'block';
+                CalendarManager.setupWeekView(weekView.querySelector('.calendar-container'), DataStore.services);
             }
             break;
         case 'calendar':
-            const cv = document.getElementById('calendarView');
-            if (cv) {
-                cv.style.display = 'block';
-                CalendarManager.setupCalendarView(cv.querySelector('.calendar-container'), servicios);
+            if (calendarView) {
+                calendarView.style.display = 'block';
+                CalendarManager.setupCalendarView(calendarView.querySelector('.calendar-container'), DataStore.services);
             }
             break;
     }
 }
 
-// ==================== VEHÍCULOS ====================
-function renderVehiculos() {
-    const container = document.getElementById('vehiculosList');
-    if (!container) return;
-
-    if (DataStore.vehiculos.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-car"></i>
-                <h4>No hay vehículos registrados</h4>
-                <p>Haz clic en "Nuevo Vehículo" para agregar el primero</p>
-            </div>`;
-        return;
-    }
-
-    const tableHTML = `
-        <div class="table-responsive">
-            <table class="services-table">
-                <thead>
-                    <tr>
-                        <th>Placa</th>
-                        <th>Marca</th>
-                        <th>Modelo</th>
-                        <th>Año</th>
-                        <th>Color</th>
-                        <th>Propietario</th>
-                        <th>Km</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${DataStore.vehiculos.map(v => {
-                        const cliente = DataStore.clientes.find(c => c.id === v.clienteId);
-                        return `
-                        <tr>
-                            <td><strong>${v.placa || '—'}</strong></td>
-                            <td>${v.marca || '—'}</td>
-                            <td>${v.modelo || '—'}</td>
-                            <td>${v.año || '—'}</td>
-                            <td>${v.color || '—'}</td>
-                            <td>${cliente ? cliente.nombre : 'Sin propietario'}</td>
-                            <td>${v.kilometraje ? v.kilometraje.toLocaleString() + ' km' : '—'}</td>
-                            <td>
-                                <div class="action-buttons" style="margin:0;justify-content:center;">
-                                    <button class="action-btn btn-edit" data-id="${v.id}" title="Editar">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="action-btn btn-delete" data-id="${v.id}" title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>`;
-                    }).join('')}
-                </tbody>
-            </table>
+function renderVistaPlaceholder() {
+    const container = document.getElementById('weekView') || document.getElementById('calendarView');
+    if (container) container.innerHTML = `
+        <div style="padding:40px;text-align:center;">
+            <div style="font-size:48px;color:#ccc;margin-bottom:20px;"><i class="fas fa-calendar"></i></div>
+            <h3 style="color:#666;">En Desarrollo</h3>
+            <p style="color:#888;">Esta vista estará disponible próximamente</p>
         </div>`;
-    container.innerHTML = tableHTML;
 }
 
-function setupVehiculosEventListeners() {
-    // Botón Nuevo Vehículo
-    const addBtn = document.getElementById('addVehiculoBtn');
-    if (addBtn) {
-        addBtn.onclick = () => {
-            llenarSelectClientes('vehiculoCliente');
-            ModalManager.openVehiculoModal(null);
-        };
-    }
-
-    // Guardar vehículo
-    const saveBtn = document.getElementById('saveVehiculoBtn');
-    if (saveBtn) {
-        saveBtn.onclick = async () => {
-            const form = document.getElementById('vehiculoForm');
-            if (!form.checkValidity()) { form.reportValidity(); return; }
-
-            const datos = {
-                placa: document.getElementById('vehiculoPlaca').value.trim(),
-                marca: document.getElementById('vehiculoMarca').value.trim(),
-                modelo: document.getElementById('vehiculoModelo').value.trim(),
-                año: document.getElementById('vehiculoAnio').value || '',
-                color: document.getElementById('vehiculoColor').value.trim() || '',
-                clienteId: document.getElementById('vehiculoCliente').value,
-                kilometraje: document.getElementById('vehiculoKilometraje').value || '',
-                notas: document.getElementById('vehiculoNotas').value.trim() || ''
-            };
-
-            try {
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-
-                if (AppState.editingVehiculoId) {
-                    await VehiculoManager.updateVehiculo(AppState.editingVehiculoId, datos);
-                    UIManager.showNotification('Vehículo actualizado correctamente', 'success');
-                } else {
-                    await VehiculoManager.createVehiculo(datos);
-                    UIManager.showNotification('Vehículo creado correctamente', 'success');
-                }
-
-                ModalManager.closeVehiculoModal();
-                renderVehiculos();
-                setupVehiculosEventListeners();
-            } catch (e) {
-                UIManager.showNotification('Error al guardar: ' + e.message, 'error');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = 'Guardar';
-            }
-        };
-    }
-
-    // Delegación de eventos para editar/eliminar filas
-    const lista = document.getElementById('vehiculosList');
-    if (lista) {
-        lista.onclick = async (e) => {
-            const editBtn = e.target.closest('.btn-edit');
-            const deleteBtn = e.target.closest('.btn-delete');
-
-            if (editBtn) {
-                const id = editBtn.getAttribute('data-id');
-                const v = DataUtils.findVehiculoById(id);
-                if (v) {
-                    llenarSelectClientes('vehiculoCliente');
-                    ModalManager.openVehiculoModal(v);
-                }
-            }
-            if (deleteBtn) {
-                const id = deleteBtn.getAttribute('data-id');
-                if (confirm('¿Eliminar este vehículo?')) {
-                    try {
-                        await VehiculoManager.deleteVehiculo(id);
-                        UIManager.showNotification('Vehículo eliminado', 'success');
-                        renderVehiculos();
-                        setupVehiculosEventListeners();
-                    } catch (e) {
-                        UIManager.showNotification('Error al eliminar: ' + e.message, 'error');
-                    }
-                }
-            }
-        };
-    }
-}
-
-// ==================== CLIENTES ====================
-function renderClientes() {
-    const container = document.getElementById('clientesList');
-    if (!container) return;
-
-    if (DataStore.clientes.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-users"></i>
-                <h4>No hay clientes registrados</h4>
-                <p>Haz clic en "Nuevo Cliente" para agregar el primero</p>
-            </div>`;
-        return;
-    }
-
-    // Mini-stats
-    const statsHTML = `
-        <div class="stats-container" style="margin-bottom:1.5rem;">
-            <div class="stat-card stat-total">
-                <h3>Total Clientes</h3>
-                <div class="stat-value">${DataStore.clientes.length}</div>
-            </div>
-            <div class="stat-card stat-pendientes">
-                <h3>Vehículos Registrados</h3>
-                <div class="stat-value">${DataStore.vehiculos.length}</div>
-            </div>
-            <div class="stat-card stat-proceso">
-                <h3>Servicios Activos</h3>
-                <div class="stat-value">${DataStore.services.filter(s => s.status !== 'completed').length}</div>
-            </div>
-            <div class="stat-card stat-completados">
-                <h3>Completados</h3>
-                <div class="stat-value">${DataStore.services.filter(s => s.status === 'completed').length}</div>
-            </div>
-        </div>`;
-
-    const tableHTML = `
-        <div class="table-responsive">
-            <table class="services-table">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Teléfono</th>
-                        <th>Email</th>
-                        <th>Dirección</th>
-                        <th>Vehículos</th>
-                        <th>Último Servicio</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${DataStore.clientes.map(c => {
-                        const vehiculosCliente = DataStore.vehiculos.filter(v => v.clienteId === c.id).length;
-                        const serviciosCliente = DataStore.services.filter(s => s.owner === c.nombre || s.owner === c.id);
-                        const ultimoServicio = serviciosCliente.length > 0
-                            ? DataUtils.formatDate(serviciosCliente[0].date)
-                            : 'Nunca';
-                        return `
-                        <tr>
-                            <td><strong>${c.nombre || c.id}</strong></td>
-                            <td>${c.telefono || '—'}</td>
-                            <td>${c.email || '—'}</td>
-                            <td>${c.direccion || '—'}</td>
-                            <td><span class="badge badge-info">${vehiculosCliente}</span></td>
-                            <td>${ultimoServicio}</td>
-                            <td>
-                                <div class="action-buttons" style="margin:0;justify-content:center;">
-                                    <button class="action-btn btn-edit" data-id="${c.id}" title="Editar">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="action-btn btn-delete" data-id="${c.id}" title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>`;
-                    }).join('')}
-                </tbody>
-            </table>
-        </div>`;
-
-    container.innerHTML = statsHTML + tableHTML;
-}
-
-function setupClientesEventListeners() {
-    const addBtn = document.getElementById('addClienteBtn');
-    if (addBtn) {
-        addBtn.onclick = () => ModalManager.openClienteModal(null);
-    }
-
-    const saveBtn = document.getElementById('saveClienteBtn');
-    if (saveBtn) {
-        saveBtn.onclick = async () => {
-            const form = document.getElementById('clienteForm');
-            if (!form.checkValidity()) { form.reportValidity(); return; }
-
-            const datos = {
-                nombre: document.getElementById('clienteNombre').value.trim(),
-                telefono: document.getElementById('clienteTelefono').value.trim(),
-                email: document.getElementById('clienteEmail').value.trim() || '',
-                direccion: document.getElementById('clienteDireccion').value.trim() || '',
-                notas: document.getElementById('clienteNotas').value.trim() || ''
-            };
-
-            try {
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-
-                if (AppState.editingClienteId) {
-                    await ClienteManager.updateCliente(AppState.editingClienteId, datos);
-                    UIManager.showNotification('Cliente actualizado correctamente', 'success');
-                } else {
-                    await ClienteManager.createCliente(datos);
-                    UIManager.showNotification('Cliente creado correctamente', 'success');
-                }
-
-                ModalManager.closeClienteModal();
-                renderClientes();
-                setupClientesEventListeners();
-            } catch (e) {
-                UIManager.showNotification('Error al guardar: ' + e.message, 'error');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = 'Guardar';
-            }
-        };
-    }
-
-    const lista = document.getElementById('clientesList');
-    if (lista) {
-        lista.onclick = async (e) => {
-            const editBtn = e.target.closest('.btn-edit');
-            const deleteBtn = e.target.closest('.btn-delete');
-
-            if (editBtn) {
-                const id = editBtn.getAttribute('data-id');
-                const cliente = DataUtils.findClienteById(id);
-                if (cliente) ModalManager.openClienteModal(cliente);
-            }
-            if (deleteBtn) {
-                const id = deleteBtn.getAttribute('data-id');
-                const tieneVehiculos = DataStore.vehiculos.some(v => v.clienteId === id);
-                if (tieneVehiculos) {
-                    alert('No se puede eliminar: el cliente tiene vehículos asociados. Elimínalos primero.');
-                    return;
-                }
-                if (confirm('¿Eliminar este cliente?')) {
-                    try {
-                        await ClienteManager.deleteCliente(id);
-                        UIManager.showNotification('Cliente eliminado', 'success');
-                        renderClientes();
-                        setupClientesEventListeners();
-                    } catch (e) {
-                        UIManager.showNotification('Error al eliminar: ' + e.message, 'error');
-                    }
-                }
-            }
-        };
-    }
-}
-
-// ==================== TIPOS DE SERVICIO ====================
-function renderServicios() {
-    const container = document.getElementById('serviciosList');
-    if (!container) return;
-
-    if (DataStore.tiposServicio.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-cogs"></i>
-                <h4>No hay tipos de servicio configurados</h4>
-                <p>Haz clic en "Nuevo Servicio" para agregar el primero</p>
-            </div>`;
-        return;
-    }
-
-    const cardsHTML = `
-        <div class="card-grid">
-            ${DataStore.tiposServicio.map(s => {
-                const badgeClass = s.categoria === 'Mantenimiento' ? 'badge-success'
-                    : s.categoria === 'Reparación' ? 'badge-warning' : 'badge-info';
-                return `
-                <div class="service-card">
-                    <div class="service-id" style="font-size:1rem;color:var(--primary);margin-bottom:.5rem;">
-                        ${s.nombre}
-                        <span class="badge ${badgeClass}" style="margin-left:.5rem;font-size:.7rem;">
-                            ${s.categoria || 'General'}
-                        </span>
-                    </div>
-                    <p style="color:var(--gray-600);font-size:.875rem;margin-bottom:1rem;">
-                        ${s.descripcion || 'Sin descripción'}
-                    </p>
-                    <div class="service-details">
-                        <div class="service-detail">
-                            <div class="detail-label">Precio</div>
-                            <div class="detail-value" style="font-size:1.25rem;font-weight:700;color:var(--success);">
-                                RD$${parseFloat(s.precio || 0).toFixed(2)}
-                            </div>
-                        </div>
-                        <div class="service-detail">
-                            <div class="detail-label">Duración</div>
-                            <div class="detail-value">${s.duracion || 'No especificada'}</div>
-                        </div>
-                    </div>
-                    <div class="action-buttons" style="margin-top:1rem;">
-                        <button class="action-btn btn-edit" data-id="${s.id}" title="Editar">
-                            <i class="fas fa-edit"></i> Editar
-                        </button>
-                        <button class="action-btn btn-delete" data-id="${s.id}" title="Eliminar">
-                            <i class="fas fa-trash"></i> Eliminar
-                        </button>
-                    </div>
-                </div>`;
-            }).join('')}
-        </div>`;
-
-    container.innerHTML = cardsHTML;
-}
-
-function setupServiciosEventListeners() {
-    const addBtn = document.getElementById('addServicioBtn');
-    if (addBtn) {
-        addBtn.onclick = () => ModalManager.openServicioModal(null);
-    }
-
-    const saveBtn = document.getElementById('saveServicioBtn');
-    if (saveBtn) {
-        saveBtn.onclick = async () => {
-            const form = document.getElementById('servicioForm');
-            if (!form.checkValidity()) { form.reportValidity(); return; }
-
-            const datos = {
-                nombre: document.getElementById('servicioNombre').value.trim(),
-                descripcion: document.getElementById('servicioDescripcion').value.trim() || '',
-                precio: parseFloat(document.getElementById('servicioPrecio').value) || 0,
-                duracion: document.getElementById('servicioDuracion').value || '',
-                categoria: document.getElementById('servicioCategoria').value || ''
-            };
-
-            try {
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-
-                if (AppState.editingServicioId) {
-                    await ServicioManager.updateServicio(AppState.editingServicioId, datos);
-                    UIManager.showNotification('Servicio actualizado correctamente', 'success');
-                } else {
-                    await ServicioManager.createServicio(datos);
-                    UIManager.showNotification('Servicio creado correctamente', 'success');
-                }
-
-                ModalManager.closeServicioModal();
-                renderServicios();
-                setupServiciosEventListeners();
-            } catch (e) {
-                UIManager.showNotification('Error al guardar: ' + e.message, 'error');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = 'Guardar';
-            }
-        };
-    }
-
-    const lista = document.getElementById('serviciosList');
-    if (lista) {
-        lista.onclick = async (e) => {
-            const editBtn = e.target.closest('.btn-edit');
-            const deleteBtn = e.target.closest('.btn-delete');
-
-            if (editBtn) {
-                const id = editBtn.getAttribute('data-id');
-                const servicio = DataUtils.findServicioById(id);
-                if (servicio) ModalManager.openServicioModal(servicio);
-            }
-            if (deleteBtn) {
-                const id = deleteBtn.getAttribute('data-id');
-                if (confirm('¿Eliminar este tipo de servicio?')) {
-                    try {
-                        await ServicioManager.deleteServicio(id);
-                        UIManager.showNotification('Servicio eliminado', 'success');
-                        renderServicios();
-                        setupServiciosEventListeners();
-                    } catch (e) {
-                        UIManager.showNotification('Error al eliminar: ' + e.message, 'error');
-                    }
-                }
-            }
-        };
-    }
-}
-
-// ==================== CONFIGURACIÓN (EMPLEADOS) ====================
-function setupConfigEventListeners() {
-    // Botón Nuevo Empleado (se renderiza dinámicamente)
-    setTimeout(() => {
-        const addBtn = document.getElementById('addEmpleadoBtn');
-        if (addBtn && !addBtn._listenerAdded) {
-            addBtn._listenerAdded = true;
-            addBtn.onclick = () => ModalManager.openEmpleadoModal(null);
-        }
-
-        const saveBtn = document.getElementById('saveEmpleadoBtn');
-        if (saveBtn && !saveBtn._listenerAdded) {
-            saveBtn._listenerAdded = true;
-            saveBtn.onclick = async () => {
-                const form = document.getElementById('empleadoForm');
-                if (!form.checkValidity()) { form.reportValidity(); return; }
-
-                const datos = {
-                    nombre: document.getElementById('empleadoNombre').value.trim(),
-                    especialidad: document.getElementById('empleadoEspecialidad').value.trim() || '',
-                    telefono: document.getElementById('empleadoTelefono').value.trim() || '',
-                    email: document.getElementById('empleadoEmail').value.trim() || '',
-                    horario: document.getElementById('empleadoHorario').value || ''
-                };
-
-                try {
-                    if (AppState.editingEmpleadoId) {
-                        await EmpleadoManager.updateEmpleado(AppState.editingEmpleadoId, datos);
-                        UIManager.showNotification('Empleado actualizado', 'success');
-                    } else {
-                        await EmpleadoManager.createEmpleado(datos);
-                        UIManager.showNotification('Empleado creado correctamente', 'success');
-                    }
-                    ModalManager.closeEmpleadoModal();
-                    UIManager.renderConfiguracion('empleados', document.getElementById('configuracionArea'));
-                    setTimeout(setupConfigEventListeners, 100);
-                } catch (e) {
-                    UIManager.showNotification('Error al guardar: ' + e.message, 'error');
-                }
-            };
-        }
-
-        // Delegación para editar/eliminar empleados
-        const empleadosList = document.getElementById('empleadosList');
-        if (empleadosList && !empleadosList._listenerAdded) {
-            empleadosList._listenerAdded = true;
-            empleadosList.onclick = async (e) => {
-                const editBtn = e.target.closest('.btn-edit');
-                const deleteBtn = e.target.closest('.btn-delete');
-
-                if (editBtn) {
-                    const id = editBtn.getAttribute('data-id');
-                    const emp = DataUtils.findEmpleadoById(id);
-                    if (emp) ModalManager.openEmpleadoModal(emp);
-                }
-                if (deleteBtn) {
-                    const id = deleteBtn.getAttribute('data-id');
-                    if (confirm('¿Eliminar este empleado?')) {
-                        try {
-                            await EmpleadoManager.deleteEmpleado(id);
-                            UIManager.showNotification('Empleado eliminado', 'success');
-                            UIManager.renderConfiguracion('empleados', document.getElementById('configuracionArea'));
-                            setTimeout(setupConfigEventListeners, 100);
-                        } catch (e) {
-                            UIManager.showNotification('Error al eliminar: ' + e.message, 'error');
-                        }
-                    }
-                }
-            };
-        }
-
-        // Guardar config general
-        const saveConfigBtn = document.getElementById('saveConfigBtn');
-        if (saveConfigBtn && !saveConfigBtn._listenerAdded) {
-            saveConfigBtn._listenerAdded = true;
-            saveConfigBtn.onclick = () => ModalManager.saveConfigGeneral();
-        }
-
-        // Guardar horarios
-        const saveHorariosBtn = document.getElementById('saveHorariosBtn');
-        if (saveHorariosBtn && !saveHorariosBtn._listenerAdded) {
-            saveHorariosBtn._listenerAdded = true;
-            saveHorariosBtn.onclick = () => ModalManager.saveConfigHorarios();
-        }
-    }, 50);
-}
-
-// ==================== UTILIDADES ====================
 function actualizarEstadisticas() {
     const s = DataStore.services || [];
-    const mapa = {
-        totalCount: s.length,
-        pendingCount: s.filter(x => x.status === 'pending').length,
-        processCount: s.filter(x => x.status === 'process').length,
+    const map = {
+        totalCount:     s.length,
+        pendingCount:   s.filter(x => x.status === 'pending').length,
+        processCount:   s.filter(x => x.status === 'process').length,
         completedCount: s.filter(x => x.status === 'completed').length
     };
-    Object.entries(mapa).forEach(([id, val]) => {
+    Object.entries(map).forEach(([id, val]) => {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
-    });
-}
-
-function llenarSelectClientes(selectId) {
-    const select = document.getElementById(selectId);
-    if (!select) return;
-    select.innerHTML = '<option value="">Seleccionar cliente</option>';
-    DataStore.clientes.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.nombre || c.id;
-        select.appendChild(opt);
     });
 }

@@ -15,13 +15,9 @@ const CalendarManager = {
             const dayName = dayNames[date.getDay()];
             const dayNumber = date.getDate();
             
-            // Filtrar servicios para este día
-            const dayServices = services.filter(service => {
-                const serviceDate = new Date(service.date);
-                return serviceDate.getDate() === date.getDate() && 
-                       serviceDate.getMonth() === date.getMonth() && 
-                       serviceDate.getFullYear() === date.getFullYear();
-            });
+            // Compare as ISO strings to avoid UTC offset shifting the day
+            const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+            const dayServices = services.filter(service => (service.date || '').split('T')[0] === dateStr);
             
             const dayEl = document.createElement('div');
             dayEl.className = 'calendar-day';
@@ -101,13 +97,9 @@ const CalendarManager = {
             const dayOfWeek = date.getDay();
             const dayName = dayNames[dayOfWeek === 0 ? 6 : dayOfWeek - 1];
             
-            // Filtrar servicios para este día
-            const dayServices = services.filter(service => {
-                const serviceDate = new Date(service.date);
-                return serviceDate.getDate() === day && 
-                       serviceDate.getMonth() === currentMonth && 
-                       serviceDate.getFullYear() === currentYear;
-            });
+            // Compare as ISO strings to avoid UTC offset shifting the day
+            const ds = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const dayServices = services.filter(service => (service.date || '').split('T')[0] === ds);
             
             const dayEl = document.createElement('div');
             dayEl.className = 'calendar-day';

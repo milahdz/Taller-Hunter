@@ -1,349 +1,320 @@
-// agendar.js - VERSIÓN SIMPLIFICADA Y CORREGIDA
-console.log('📄 Cargando agendar.js...');
+// agenda.js
+console.log('📄 Cargando agenda.js...');
 
 const AgendaManager = {
-    // Inicializar
     init: function() {
         console.log('🚗 Inicializando AgendaManager...');
-        
-        // Verificar elementos críticos
-        this.verificarElementos();
         this.setupEventListeners();
     },
-    
-    // Verificar que todos los elementos existen
-    verificarElementos: function() {
-        const elementosCriticos = [
-            'addVehicleBtn',
-            'scheduleModal',
-            'scheduleForm',
-            'saveScheduleBtn',
-            'cancelBtn',
-            'closeModal',
-            'vehiculo_nuevo',
-            'cliente_nuevo',
-            'fecha',
-            'servicio',
-            'empleado',
-            'telefono',
-            'notas'
-        ];
-        
-        console.log('🔍 Verificando elementos:');
-        elementosCriticos.forEach(id => {
-            const elemento = document.getElementById(id);
-            console.log(`- ${id}:`, elemento ? '✅' : '❌ NO ENCONTRADO');
-        });
-    },
-    
-    // Configurar eventos
+
     setupEventListeners: function() {
-        console.log('🔗 Configurando event listeners...');
-        
-        // 1. Botón "Agendar Vehículo"
         const addVehicleBtn = document.getElementById('addVehicleBtn');
         if (addVehicleBtn) {
             addVehicleBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                console.log('🎯 Click en "Agendar Vehículo"');
-                this.abrirModal();
+                AgendaManager.abrirModal();
             });
         }
-        
-        // 2. Botón "Guardar"
+
         const saveBtn = document.getElementById('saveScheduleBtn');
         if (saveBtn) {
             saveBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                console.log('💾 Click en "Guardar"');
-                this.guardarAgendamiento();
+                AgendaManager.guardarAgendamiento();
             });
         }
-        
-        // 3. Botón "Cancelar"
+
         const cancelBtn = document.getElementById('cancelBtn');
         if (cancelBtn) {
             cancelBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                console.log('❌ Click en "Cancelar"');
-                this.cerrarModal();
+                AgendaManager.cerrarModal();
             });
         }
-        
-        // 4. Botón "Cerrar" (X)
+
         const closeBtn = document.getElementById('closeModal');
         if (closeBtn) {
             closeBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                console.log('❌ Click en "Cerrar" (X)');
-                this.cerrarModal();
+                AgendaManager.cerrarModal();
             });
         }
-        
-        // 5. Cerrar modal al hacer clic fuera
+
         const modal = document.getElementById('scheduleModal');
         if (modal) {
             modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    console.log('👆 Click fuera del modal');
-                    this.cerrarModal();
+                if (e.target === modal) AgendaManager.cerrarModal();
+            });
+        }
+
+        // Cascade: cliente → vehiculos + telefono
+        const selectCliente = document.getElementById('cliente');
+        if (selectCliente) {
+            selectCliente.addEventListener('change', () => {
+                const clienteId = selectCliente.value;
+                AgendaManager.poblarVehiculos(clienteId);
+
+                // Auto-rellenar teléfono
+                const cliente = (DataStore.clientes || []).find(c => String(c.id) === String(clienteId));
+                const telefonoInput = document.getElementById('telefono');
+                if (telefonoInput) {
+                    telefonoInput.value = cliente ? (cliente.telefono || '') : '';
                 }
             });
         }
-        
-        console.log('✅ Event listeners configurados');
     },
-    
-    // Abrir modal (SIMPLIFICADO)
+
     abrirModal: function() {
-        console.log('🔓 Abriendo modal...');
-        
         const modal = document.getElementById('scheduleModal');
         if (!modal) {
-            console.error('❌ ERROR: Modal no encontrado');
             alert('Error: No se puede abrir el formulario');
             return;
         }
-        
-        // Mostrar modal
-        modal.style.display = 'flex';
-        
-        // Configurar fecha por defecto (mañana)
+
+        // Reset form first
+        const form = document.getElementById('scheduleForm');
+        if (form) form.reset();
+
+        // Default date (tomorrow)
         const fechaInput = document.getElementById('fecha');
         if (fechaInput) {
             const hoy = new Date();
             const manana = new Date(hoy);
             manana.setDate(manana.getDate() + 1);
-            
             fechaInput.min = hoy.toISOString().split('T')[0];
             fechaInput.value = manana.toISOString().split('T')[0];
-            console.log('📅 Fecha configurada:', fechaInput.value);
         }
-        
-        // Limpiar formulario
-        const form = document.getElementById('scheduleForm');
-        if (form) {
-            form.reset();
-            console.log('🧹 Formulario limpiado');
-        }
-        
-        console.log('✅ Modal abierto y listo');
+
+        // Default time
+        const horaInput = document.getElementById('hora');
+        if (horaInput) horaInput.value = '08:00';
+
+        // Populate selects from DataStore
+        AgendaManager.poblarSelects();
+
+        modal.style.display = 'flex';
     },
-    
-    // Validar formulario
+
+    poblarSelects: function() {
+        // Clientes
+        const selectCliente = document.getElementById('cliente');
+        if (selectCliente) {
+            const clientes = DataStore.clientes || [];
+            selectCliente.innerHTML = '<option value="">-- Seleccionar cliente --</option>';
+            clientes.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nombre;
+                selectCliente.appendChild(opt);
+            });
+        }
+
+        // Vehiculos (vacío hasta que se seleccione cliente)
+        AgendaManager.poblarVehiculos(null);
+
+        // Tipos de Servicio
+        const selectServicio = document.getElementById('servicio');
+        if (selectServicio) {
+            const tipos = DataStore.tiposServicio || [];
+            selectServicio.innerHTML = '<option value="">-- Seleccionar servicio --</option>';
+            tipos.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.nombre + (t.precio ? ` ($${t.precio})` : '');
+                selectServicio.appendChild(opt);
+            });
+        }
+
+        // Empleados
+        const selectEmpleado = document.getElementById('empleado');
+        if (selectEmpleado) {
+            const empleados = DataStore.empleados || [];
+            selectEmpleado.innerHTML = '<option value="">-- Seleccionar empleado --</option>';
+            empleados.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = e.nombre + (e.especialidad ? ` — ${e.especialidad}` : '');
+                selectEmpleado.appendChild(opt);
+            });
+        }
+    },
+
+    poblarVehiculos: function(clienteId) {
+        const selectVehiculo = document.getElementById('vehiculo');
+        if (!selectVehiculo) return;
+
+        const todosVehiculos = DataStore.vehiculos || [];
+
+        let vehiculos = [];
+        let placeholder = '<option value="">-- Primero selecciona un cliente --</option>';
+
+        if (clienteId) {
+            // Try filtered by client first
+            const filtrados = todosVehiculos.filter(v => String(v.clienteId) === String(clienteId));
+            if (filtrados.length > 0) {
+                vehiculos = filtrados;
+                placeholder = '<option value="">-- Seleccionar vehículo --</option>';
+            } else {
+                // Fallback: show all vehicles if none are linked to this client
+                vehiculos = todosVehiculos;
+                placeholder = '<option value="">-- Seleccionar vehículo --</option>';
+            }
+        }
+
+        selectVehiculo.innerHTML = placeholder;
+        vehiculos.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.textContent = `${v.placa} — ${v.marca || ''} ${v.modelo || ''}`.trim();
+            selectVehiculo.appendChild(opt);
+        });
+    },
+
     validarFormulario: function() {
-        console.log('✓ Validando formulario...');
-        
         const campos = [
-            { id: 'vehiculo_nuevo', nombre: 'Vehículo' },
-            { id: 'cliente_nuevo', nombre: 'Cliente' },
+            { id: 'cliente', nombre: 'Cliente' },
+            { id: 'vehiculo', nombre: 'Vehículo' },
             { id: 'fecha', nombre: 'Fecha' },
-            { id: 'servicio', nombre: 'Servicio' },
+            { id: 'hora', nombre: 'Hora' },
+            { id: 'servicio', nombre: 'Tipo de Servicio' },
             { id: 'empleado', nombre: 'Empleado' }
         ];
-        
+
         for (const campo of campos) {
-            const elemento = document.getElementById(campo.id);
-            if (!elemento) {
-                console.error(`❌ Elemento ${campo.id} no encontrado`);
+            const el = document.getElementById(campo.id);
+            if (!el) {
                 alert(`Error: Campo ${campo.nombre} no disponible`);
                 return false;
             }
-            
-            if (!elemento.value.trim()) {
-                elemento.focus();
-                elemento.style.borderColor = '#dc3545';
-                alert(`❌ Por favor, completa el campo: ${campo.nombre}`);
+            if (!el.value || !el.value.trim()) {
+                el.focus();
+                el.style.borderColor = '#dc3545';
+                alert(`Por favor, completa el campo: ${campo.nombre}`);
                 return false;
             } else {
-                elemento.style.borderColor = '';
+                el.style.borderColor = '';
             }
         }
-        
-        console.log('✅ Formulario válido');
         return true;
     },
-    
-    // Guardar agendamiento
+
     async guardarAgendamiento() {
-        console.log('💾 Iniciando guardado...');
-        
-        // 1. Validar
-        if (!this.validarFormulario()) {
-            console.log('❌ Validación fallida');
-            return;
-        }
-        
-        // 2. Obtener datos del formulario
+        if (!AgendaManager.validarFormulario()) return;
+
+        const vehiculoId  = document.getElementById('vehiculo').value;
+        const clienteId   = document.getElementById('cliente').value;
+        const servicioId  = document.getElementById('servicio').value;
+        const empleadoId  = document.getElementById('empleado').value;
+
+        // Look up text values from DataStore to fill legacy text columns
+        const vehiculo   = (DataStore.vehiculos     || []).find(v => String(v.id) === String(vehiculoId));
+        const cliente    = (DataStore.clientes      || []).find(c => String(c.id) === String(clienteId));
+        const tipoServ   = (DataStore.tiposServicio || []).find(t => String(t.id) === String(servicioId));
+        const empleado   = (DataStore.empleados     || []).find(e => String(e.id) === String(empleadoId));
+
+        // vehiculo_id is INTEGER in the DB (unquoted in sample INSERT)
+        const vehiculoIdInt = Number(vehiculoId);
+
+        // hora must be HH:MM:SS for the TIME column
+        const horaRaw = document.getElementById('hora').value || '08:00';
+        const hora = horaRaw.split(':').length === 2 ? horaRaw + ':00' : horaRaw;
+
         const datos = {
-            id: `REG_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-            vehiculo_id: '1', // Temporal - usar el primer vehículo
-            cliente_id: `CLI_${Date.now()}`, // Temporal - crear nuevo cliente
-            tipo_servicio_id: `SVC_${Date.now()}`, // Temporal - crear nuevo servicio
-            empleado_id: document.getElementById('empleado').value.trim(),
-            fecha: document.getElementById('fecha').value,
-            hora: '08:00',
-            telefono: document.getElementById('telefono').value.trim() || '',
-            notas: document.getElementById('notas').value.trim() || '',
-            estado: 'pending'
+            id:               String(Date.now()),      // TEXT column, no auto-default
+            vehiculo_id:      vehiculoIdInt,           // INTEGER
+            cliente_id:       clienteId,               // UUID text
+            tipo_servicio_id: servicioId,              // UUID text
+            empleado_id:      String(empleadoId),      // TEXT (quoted '1' in sample)
+            // legacy text columns
+            placa:            vehiculo ? vehiculo.placa                              : null,
+            modelo:           vehiculo ? `${vehiculo.marca || ''} ${vehiculo.modelo || ''}`.trim() : null,
+            propietario:      cliente  ? cliente.nombre                              : null,
+            tipo_servicio:    tipoServ ? tipoServ.nombre                             : null,
+            empleado:         empleado ? empleado.nombre                             : null,
+            fecha:            document.getElementById('fecha').value,
+            hora:             hora,
+            telefono:         document.getElementById('telefono').value.trim() || null,
+            notas:            document.getElementById('notas').value.trim()    || null,
+            estado:           'Pendiente'
         };
-        
-        console.log('📤 Datos preparados:', datos);
-        
-        // 3. Deshabilitar botón de guardar
+
+        console.log('📤 Guardando agendamiento:', datos);
+
         const saveBtn = document.getElementById('saveScheduleBtn');
-        if (!saveBtn) {
-            console.error('❌ Botón Guardar no encontrado');
-            return;
+        const originalHTML = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            saveBtn.disabled = true;
         }
-        
-        const originalText = saveBtn.innerHTML;
-        const originalDisabled = saveBtn.disabled;
-        
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-        saveBtn.disabled = true;
-        
+
         try {
-            // 4. Verificar que supabase esté disponible
-            if (!window.supabase) {
-                throw new Error('Supabase no está disponible. Recarga la página.');
-            }
-            
-            console.log('📡 Conectando con Supabase...');
-            
-            // 5. Guardar en la base de datos
+            if (!window.supabase) throw new Error('Supabase no está disponible. Recarga la página.');
+
             const { data, error } = await supabase
                 .from('registro_servicio_vehiculo')
                 .insert([datos])
                 .select()
                 .single();
-            
-            if (error) {
-                console.error('❌ Error de Supabase:', error);
-                throw error;
+
+            if (error) throw error;
+
+            console.log('✅ Agendamiento guardado:', data);
+            AgendaManager.mostrarMensaje('¡Vehículo agendado exitosamente!', 'success');
+            AgendaManager.cerrarModal();
+
+            // Recargar y re-renderizar agenda
+            if (typeof cargarDatosReales === 'function') {
+                cargarDatosReales().then(() => {
+                    if (typeof renderAgenda === 'function') renderAgenda();
+                    if (typeof actualizarEstadisticas === 'function') actualizarEstadisticas();
+                });
             }
-            
-            console.log('✅ Registro guardado exitosamente:', data);
-            
-            // 6. Mostrar mensaje de éxito
-            this.mostrarMensaje('✅ ¡Vehículo agendado exitosamente!', 'success');
-            
-            // 7. Cerrar modal
-            this.cerrarModal();
-            
-            // 8. Recargar la página después de 1.5 segundos
-            setTimeout(() => {
-                console.log('🔄 Recargando página...');
-                window.location.reload();
-            }, 1500);
-            
-        } catch (error) {
-            console.error('❌ Error al guardar:', error);
-            
-            // Mostrar mensaje de error específico
-            let mensaje = 'Error al guardar el agendamiento';
-            
-            if (error.message.includes('null value in column "id"')) {
-                mensaje = 'Error: No se pudo generar un ID único. Intenta nuevamente.';
-            } else if (error.message.includes('duplicate key')) {
-                mensaje = 'Error: Este registro ya existe. Intenta con datos diferentes.';
-            } else if (error.message.includes('network')) {
-                mensaje = 'Error de conexión. Verifica tu internet.';
-            }
-            
-            this.mostrarMensaje(`❌ ${mensaje}\n\nDetalle: ${error.message}`, 'error');
-            
+
+        } catch (err) {
+            console.error('❌ Error al guardar:', err);
+            let msg = 'Error al guardar el agendamiento.';
+            if (err.message) msg += `\n\nDetalle: ${err.message}`;
+            AgendaManager.mostrarMensaje(msg, 'error');
         } finally {
-            // 9. Restaurar botón
-            saveBtn.innerHTML = originalText;
-            saveBtn.disabled = originalDisabled;
+            if (saveBtn) {
+                saveBtn.innerHTML = originalHTML;
+                saveBtn.disabled = false;
+            }
         }
     },
-    
-    // Cerrar modal
+
     cerrarModal: function() {
-        console.log('🔒 Cerrando modal...');
-        
         const modal = document.getElementById('scheduleModal');
-        if (modal) {
-            modal.style.display = 'none';
-            console.log('✅ Modal cerrado');
-        }
+        if (modal) modal.style.display = 'none';
     },
-    
-    // Mostrar mensaje (toast/alert)
+
     mostrarMensaje: function(mensaje, tipo = 'info') {
-        console.log(`💬 Mensaje (${tipo}):`, mensaje);
-        
         if (tipo === 'error') {
             alert(mensaje);
-        } else {
-            // Crear toast de éxito
-            const toast = document.createElement('div');
-            toast.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #10b981;
-                color: white;
-                padding: 12px 20px;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                z-index: 9999;
-                animation: slideIn 0.3s ease;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                max-width: 400px;
-            `;
-            
-            toast.innerHTML = `
-                <i class="fas fa-check-circle"></i>
-                <span>${mensaje}</span>
-            `;
-            
-            document.body.appendChild(toast);
-            
-            // Remover después de 3 segundos
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.style.animation = 'slideOut 0.3s ease';
-                    setTimeout(() => toast.remove(), 300);
-                }
-            }, 3000);
-            
-            // Agregar animaciones si no existen
-            if (!document.querySelector('#toast-animations')) {
-                const style = document.createElement('style');
-                style.id = 'toast-animations';
-                style.textContent = `
-                    @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-                    @keyframes slideOut {
-                        from { transform: translateX(0); opacity: 1; }
-                        to { transform: translateX(100%); opacity: 0; }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
+            return;
         }
+
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position:fixed; top:20px; right:20px;
+            background:#10b981; color:white;
+            padding:12px 20px; border-radius:8px;
+            box-shadow:0 4px 12px rgba(0,0,0,0.15);
+            z-index:9999; display:flex; align-items:center; gap:10px;
+            max-width:400px; font-size:14px;
+        `;
+        toast.innerHTML = `<i class="fas fa-check-circle"></i><span>${mensaje}</span>`;
+        document.body.appendChild(toast);
+
+        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
     }
 };
 
-// Inicializar cuando el DOM esté listo
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('📄 DOM completamente cargado');
-        AgendaManager.init();
-    });
+    document.addEventListener('DOMContentLoaded', () => AgendaManager.init());
 } else {
-    console.log('📄 DOM ya está listo');
     AgendaManager.init();
 }
 
-// Hacer disponible globalmente
 window.AgendaManager = AgendaManager;
-
-console.log('✅ agendar.js completamente cargado');
+console.log('✅ agenda.js cargado');

@@ -1,120 +1,5 @@
 // Manejo de la interfaz de usuario
 const UIManager = {
-    // Actualizar estadísticas en la UI
-    updateStatsUI: () => {
-        const stats = DataUtils.getStats();
-        document.getElementById('totalCount').textContent = stats.total;
-        document.getElementById('pendingCount').textContent = stats.pending;
-        document.getElementById('processCount').textContent = stats.process;
-        document.getElementById('completedCount').textContent = stats.completed;
-    },
-    
-    // Renderizar servicios en tabla
-    renderServicesTable: (services, container) => {
-        container.innerHTML = '';
-        
-        if (services.length === 0) {
-            const emptyState = document.createElement('div');
-            emptyState.className = 'empty-state';
-            emptyState.innerHTML = `
-                <i class="fas fa-car"></i>
-                <h4>No hay servicios</h4>
-                <p>${AppState.currentTab === 'all' ? 'No hay servicios agendados' : `No hay servicios ${DataUtils.getTabName(AppState.currentTab)}`}</p>
-            `;
-            container.appendChild(emptyState);
-            return null;
-        }
-        
-        const tableContainer = document.createElement('div');
-        tableContainer.className = 'table-responsive';
-        tableContainer.innerHTML = `
-            <table class="services-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Vehículo</th>
-                        <th>Cliente</th>
-                        <th>Fecha</th>
-                        <th>Servicio</th>
-                        <th>Empleado</th>
-                        <th>Teléfono</th>
-                        <th>Hora</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="servicesTableBody">
-                </tbody>
-            </table>
-        `;
-        
-        container.appendChild(tableContainer);
-        const tableBody = document.getElementById('servicesTableBody');
-        
-        services.forEach(service => {
-            const row = document.createElement('tr');
-            
-            let statusText, statusClass, statusIcon;
-            switch(service.status) {
-                case 'pending':
-                    statusText = 'Pendiente';
-                    statusClass = 'status-pending';
-                    statusIcon = 'fas fa-clock';
-                    break;
-                case 'process':
-                    statusText = 'En Proceso';
-                    statusClass = 'status-in-process';
-                    statusIcon = 'fas fa-tools';
-                    break;
-                case 'completed':
-                    statusText = 'Completado';
-                    statusClass = 'status-completed';
-                    statusIcon = 'fas fa-check-circle';
-                    break;
-            }
-            
-            row.innerHTML = `
-                <td><strong>${service.id}</strong></td>
-                <td>${service.vehicle}</td>
-                <td>${service.owner}</td>
-                <td>${DataUtils.formatDate(service.date)}</td>
-                <td>${service.service}</td>
-                <td>${service.employee || 'No asignado'}</td>
-                <td>${service.phone}</td>
-                <td>${DataUtils.formatTime(service.time)}</td>
-                <td>
-                    <span class="service-status ${statusClass}" style="margin: 0;">
-                        <i class="${statusIcon}"></i>
-                        <span>${statusText}</span>
-                    </span>
-                </td>
-                <td>
-                    <div class="action-buttons" style="margin: 0; justify-content: center;">
-                        ${service.status !== 'completed' ? `
-                        <button class="action-btn btn-complete" data-id="${service.id}" title="Completar">
-                            <i class="fas fa-check"></i>
-                        </button>` : ''}
-                        <button class="action-btn btn-edit" data-id="${service.id}" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="action-btn btn-delete" data-id="${service.id}" title="Eliminar">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            `;
-            
-            tableBody.appendChild(row);
-        });
-        
-        // Devolver los botones para agregar eventos después
-        return {
-            completeBtns: document.querySelectorAll('.btn-complete'),
-            editBtns: document.querySelectorAll('.btn-edit'),
-            deleteBtns: document.querySelectorAll('.btn-delete')
-        };
-    },
-    
     // Renderizar vehículos
     renderVehiculos: (vehiculos, container) => {
         container.innerHTML = '';
@@ -169,10 +54,10 @@ const UIManager = {
                 <td>${cliente.telefono || 'No disponible'}</td>
                 <td>
                     <div class="action-buttons" style="margin: 0; justify-content: center;">
-                        <button class="action-btn btn-edit" data-id="${vehiculo.id}" data-type="vehiculo" title="Editar">
+                        <button class="action-btn-icon btn-edit" data-id="${vehiculo.id}" data-type="vehiculo" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="action-btn btn-delete" data-id="${vehiculo.id}" data-type="vehiculo" title="Eliminar">
+                        <button class="action-btn-icon btn-delete" data-id="${vehiculo.id}" data-type="vehiculo" title="Eliminar">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -274,10 +159,10 @@ const UIManager = {
                 <td>${ultimoServicio}</td>
                 <td>
                     <div class="action-buttons" style="margin: 0; justify-content: center;">
-                        <button class="action-btn btn-edit" data-id="${cliente.id}" data-type="cliente" title="Editar">
+                        <button class="action-btn-icon btn-edit" data-id="${cliente.id}" data-type="cliente" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="action-btn btn-delete" data-id="${cliente.id}" data-type="cliente" title="Eliminar">
+                        <button class="action-btn-icon btn-delete" data-id="${cliente.id}" data-type="cliente" title="Eliminar">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -339,12 +224,14 @@ const UIManager = {
                         <div class="detail-value">${servicio.duracion || 'No especificada'}</div>
                     </div>
                 </div>
-                <div class="action-buttons" style="margin-top: 1rem;">
-                    <button class="action-btn btn-edit" data-id="${servicio.id}" data-type="servicio" title="Editar">
-                        <i class="fas fa-edit"></i>
+                <div class="service-card-actions">
+                    <button class="svc-btn svc-btn-edit card-btn-edit" data-id="${servicio.id}" data-type="servicio">
+                        <i class="fas fa-pen"></i>
+                        <span>Editar</span>
                     </button>
-                    <button class="action-btn btn-delete" data-id="${servicio.id}" data-type="servicio" title="Eliminar">
+                    <button class="svc-btn svc-btn-delete card-btn-delete" data-id="${servicio.id}" data-type="servicio">
                         <i class="fas fa-trash"></i>
+                        <span>Eliminar</span>
                     </button>
                 </div>
             `;
@@ -355,167 +242,268 @@ const UIManager = {
         container.appendChild(cardsContainer);
         
         return {
-            editBtns: document.querySelectorAll('[data-type="servicio"].btn-edit'),
-            deleteBtns: document.querySelectorAll('[data-type="servicio"].btn-delete')
+            editBtns: container.querySelectorAll('button.card-btn-edit'),
+            deleteBtns: container.querySelectorAll('button.card-btn-delete')
         };
     },
     
+    // Chart instance registry — prevents canvas reuse errors
+    _charts: {},
+    _destroyChart(key) {
+        if (UIManager._charts[key]) { UIManager._charts[key].destroy(); UIManager._charts[key] = null; }
+    },
+
+    _kpiCard(bg, color, icon, value, label) {
+        return `<div class="kpi-card">
+            <div class="kpi-icon" style="background:${bg};"><i class="${icon}" style="color:${color};"></i></div>
+            <div><div class="kpi-value">${value}</div><div class="kpi-label">${label}</div></div>
+        </div>`;
+    },
+
+    _buildSeries(period, services) {
+        const now = new Date();
+        if (period === 'diario') {
+            const hours = [7,8,9,10,11,12,13,14,15,16,17,18];
+            return {
+                labels: hours.map(h => h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`),
+                values: hours.map(h => services.filter(s => s.time && parseInt(s.time) === h).length),
+                color: '#3b82f6'
+            };
+        }
+        if (period === 'semanal') {
+            const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+            const labels = [], values = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(now); d.setDate(d.getDate() - i);
+                labels.push(days[d.getDay()]);
+                const ds = d.toISOString().split('T')[0];
+                values.push(services.filter(s => s.date === ds).length);
+            }
+            return { labels, values, color: '#8b5cf6' };
+        }
+        // monthly
+        const days = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+        const labels = Array.from({length: days}, (_, i) => String(i+1));
+        const values = labels.map((_, i) => {
+            const ds = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+            return services.filter(s => s.date === ds).length;
+        });
+        return { labels, values, color: '#10b981' };
+    },
+
     // Renderizar reportes
     renderReportes: (reportType, container) => {
         container.innerHTML = '';
-        
-        const { startDate, endDate } = CalendarManager.getDateRange(reportType);
-        
-        // Filtrar servicios por rango de fecha
-        const serviciosFiltrados = CalendarManager.generateDateReport(
-            DataStore.services,
-            startDate,
-            endDate
-        );
-        
-        // Calcular estadísticas
-        const totalServicios = serviciosFiltrados.length;
-        const totalPendientes = serviciosFiltrados.filter(s => s.status === 'pending').length;
-        const totalProceso = serviciosFiltrados.filter(s => s.status === 'process').length;
-        const totalCompletados = serviciosFiltrados.filter(s => s.status === 'completed').length;
-        
-        // Calcular ingresos estimados
-        let ingresosEstimados = 0;
-        let ingresosPotenciales = 0;
-        
-        serviciosFiltrados.forEach(servicio => {
-            const tipoServicio = DataStore.tiposServicio.find(t => t.nombre === servicio.service);
-            if (tipoServicio) {
-                if (servicio.status === 'completed') {
-                    ingresosEstimados += parseFloat(tipoServicio.precio);
-                } else {
-                    ingresosPotenciales += parseFloat(tipoServicio.precio);
-                }
+
+        const all       = DataStore.services || [];
+        const done      = all.filter(s => s.status === 'completed');
+        const inProcess = all.filter(s => s.status === 'process');
+        const pending   = all.filter(s => s.status === 'pending');
+
+        let ingresos = 0;
+        done.forEach(s => {
+            const t = (DataStore.tiposServicio||[]).find(x => x.nombre === s.service);
+            if (t) ingresos += parseFloat(t.precio) || 0;
+        });
+
+        const vehiculosUnicos = new Set(all.map(s => s.vehicle).filter(Boolean)).size;
+        const clientesUnicos  = new Set(all.map(s => s.owner).filter(Boolean)).size;
+        const series          = UIManager._buildSeries(reportType, all);
+        const periodLabel     = {diario:'Hoy', semanal:'Esta semana', mensual:'Este mes'}[reportType] || 'Período';
+
+        const wrap = document.createElement('div');
+        wrap.style.padding = '1.25rem';
+        wrap.innerHTML = `
+        <div class="report-kpi-grid">
+            ${UIManager._kpiCard('#dcfce7','#16a34a','fas fa-dollar-sign',
+                'RD$'+ingresos.toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2}), 'Ingresos Realizados')}
+            ${UIManager._kpiCard('#dbeafe','#2563eb','fas fa-wrench', done.length, 'Servicios Completados')}
+            ${UIManager._kpiCard('#f3e8ff','#9333ea','fas fa-car', vehiculosUnicos, 'Vehículos Atendidos')}
+            ${UIManager._kpiCard('#fef3c7','#d97706','fas fa-users', clientesUnicos, 'Clientes Registrados')}
+        </div>
+
+        <div class="report-chart-grid" style="display:grid;grid-template-columns:1fr 300px;gap:1rem;margin-bottom:1rem;">
+            <div class="chart-container" style="padding:1.25rem;">
+                <div class="chart-header">
+                    <div class="chart-title">Actividad — ${periodLabel}</div>
+                </div>
+                <canvas id="rcBar" style="max-height:240px;"></canvas>
+            </div>
+            <div class="chart-container" style="padding:1.25rem;">
+                <div class="chart-header"><div class="chart-title">Por Estado</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;padding:0.5rem 0;">
+                    <canvas id="rcDonut" style="max-height:170px;max-width:170px;"></canvas>
+                </div>
+                <div style="font-size:0.8rem;display:flex;flex-direction:column;gap:0.375rem;margin-top:0.5rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:2px;background:#16a34a;flex-shrink:0;"></span>Completados: <strong>${done.length}</strong></div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:2px;background:#2563eb;flex-shrink:0;"></span>En Proceso: <strong>${inProcess.length}</strong></div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:2px;background:#d97706;flex-shrink:0;"></span>Pendientes: <strong>${pending.length}</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container" style="padding:0;">
+            <div class="chart-header" style="padding:1rem 1.25rem;">
+                <div class="chart-title">Resumen del Período</div>
+            </div>
+            <table class="services-table">
+                <tbody>
+                    <tr><td style="color:#64748b;font-size:0.825rem;width:50%;">Período analizado</td><td><strong>${periodLabel}</strong></td></tr>
+                    <tr><td style="color:#64748b;font-size:0.825rem;">Total registros</td><td><strong>${all.length}</strong></td></tr>
+                    <tr><td style="color:#64748b;font-size:0.825rem;">Tasa de completación</td><td><strong>${all.length>0?Math.round((done.length/all.length)*100):0}%</strong></td></tr>
+                    <tr><td style="color:#64748b;font-size:0.825rem;">Cliente más frecuente</td><td><strong>${UIManager.getClienteMasFrecuente()}</strong></td></tr>
+                    <tr><td style="color:#64748b;font-size:0.825rem;">Servicio más solicitado</td><td><strong>${UIManager.getServicioMasSolicitado(all)}</strong></td></tr>
+                    <tr><td style="color:#64748b;font-size:0.825rem;">Empleado más activo</td><td><strong>${UIManager.getEmpleadoMasActivo(all)}</strong></td></tr>
+                    <tr><td style="color:#64748b;font-size:0.825rem;">Fecha del reporte</td><td><strong>${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</strong></td></tr>
+                </tbody>
+            </table>
+        </div>`;
+
+        container.appendChild(wrap);
+
+        requestAnimationFrame(() => {
+            UIManager._destroyChart('rcBar');
+            UIManager._destroyChart('rcDonut');
+
+            const barCtx = document.getElementById('rcBar');
+            if (barCtx && window.Chart) {
+                UIManager._charts.rcBar = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: series.labels,
+                        datasets: [{ label:'Servicios', data: series.values,
+                            backgroundColor: series.color+'33', borderColor: series.color,
+                            borderWidth: 2, borderRadius: 5 }]
+                    },
+                    options: {
+                        responsive:true, maintainAspectRatio:true,
+                        plugins:{ legend:{ display:false } },
+                        scales:{
+                            y:{ beginAtZero:true, ticks:{ stepSize:1, color:'#94a3b8' }, grid:{ color:'#f1f5f9' } },
+                            x:{ ticks:{ color:'#94a3b8' }, grid:{ display:false } }
+                        }
+                    }
+                });
+            }
+
+            const donutCtx = document.getElementById('rcDonut');
+            if (donutCtx && window.Chart) {
+                const hasData = done.length + inProcess.length + pending.length > 0;
+                UIManager._charts.rcDonut = new Chart(donutCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Completados','En Proceso','Pendientes'],
+                        datasets: [{
+                            data: hasData ? [done.length, inProcess.length, pending.length] : [1,1,1],
+                            backgroundColor: ['#16a34a','#2563eb','#d97706'],
+                            borderWidth:2, borderColor:'#fff'
+                        }]
+                    },
+                    options: {
+                        responsive:true, maintainAspectRatio:true, cutout:'66%',
+                        plugins:{
+                            legend:{ display:false },
+                            tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${hasData ? ctx.parsed : 0}` } }
+                        }
+                    }
+                });
             }
         });
-        
-        const totalIngresos = ingresosEstimados + ingresosPotenciales;
-        
-        // Crear contenido del reporte
-        const reporteContent = document.createElement('div');
-        reporteContent.innerHTML = `
-            <div class="stats-container" style="margin-bottom: 2rem;">
-                <div class="stat-card stat-total">
-                    <h3>Servicios Totales</h3>
-                    <div class="stat-value">${totalServicios}</div>
-                    <div style="font-size: 0.875rem; color: var(--gray-600); margin-top: 0.5rem;">
-                        ${DataUtils.formatDate(startDate)} - ${DataUtils.formatDate(endDate)}
-                    </div>
-                </div>
-                <div class="stat-card stat-pendientes">
-                    <h3>Pendientes</h3>
-                    <div class="stat-value">${totalPendientes}</div>
-                </div>
-                <div class="stat-card stat-proceso">
-                    <h3>En Proceso</h3>
-                    <div class="stat-value">${totalProceso}</div>
-                </div>
-                <div class="stat-card stat-completados">
-                    <h3>Completados</h3>
-                    <div class="stat-value">${totalCompletados}</div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-                <div class="chart-header">
-                    <div class="chart-title">Ingresos Financieros</div>
-                </div>
-                <div class="stats-container">
-                    <div class="stat-card" style="border-left: 4px solid var(--success);">
-                        <h3>Ingresos Realizados</h3>
-                        <div class="stat-value" style="color: var(--success);">RD$${ingresosEstimados.toFixed(2)}</div>
-                    </div>
-                    <div class="stat-card" style="border-left: 4px solid var(--warning);">
-                        <h3>Ingresos Potenciales</h3>
-                        <div class="stat-value" style="color: var(--warning);">RD$${ingresosPotenciales.toFixed(2)}</div>
-                    </div>
-                    <div class="stat-card" style="border-left: 4px solid var(--primary);">
-                        <h3>Total Proyectado</h3>
-                        <div class="stat-value" style="color: var(--primary);">RD$${totalIngresos.toFixed(2)}</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-                <div class="chart-header">
-                    <div class="chart-title">Servicios por Estado</div>
-                </div>
-                <div style="padding: 1rem;">
-                    <div style="margin-bottom: 1rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                            <span>Completados</span>
-                            <span>${totalCompletados} (${totalServicios > 0 ? Math.round((totalCompletados/totalServicios)*100) : 0}%)</span>
-                        </div>
-                        <div style="height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden;">
-                            <div style="width: ${totalServicios > 0 ? (totalCompletados/totalServicios)*100 : 0}%; height: 100%; background: var(--success);"></div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 1rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                            <span>En Proceso</span>
-                            <span>${totalProceso} (${totalServicios > 0 ? Math.round((totalProceso/totalServicios)*100) : 0}%)</span>
-                        </div>
-                        <div style="height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden;">
-                            <div style="width: ${totalServicios > 0 ? (totalProceso/totalServicios)*100 : 0}%; height: 100%; background: var(--primary);"></div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 1rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                            <span>Pendientes</span>
-                            <span>${totalPendientes} (${totalServicios > 0 ? Math.round((totalPendientes/totalServicios)*100) : 0}%)</span>
-                        </div>
-                        <div style="height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden;">
-                            <div style="width: ${totalServicios > 0 ? (totalPendientes/totalServicios)*100 : 0}%; height: 100%; background: var(--warning);"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-                <div class="chart-header">
-                    <div class="chart-title">Resumen de Servicios</div>
-                </div>
-                <div style="padding: 1rem;">
-                    <div style="margin-bottom: 0.5rem;">
-                        <strong>Período:</strong> ${reportType === 'diario' ? 'Hoy' : reportType === 'semanal' ? 'Esta semana' : 'Este mes'}
-                    </div>
-                    <div style="margin-bottom: 0.5rem;">
-                        <strong>Fecha de reporte:</strong> ${new Date().toLocaleDateString('es-ES')}
-                    </div>
-                    <div style="margin-bottom: 0.5rem;">
-                        <strong>Cliente más frecuente:</strong> ${this.getClienteMasFrecuente()}
-                    </div>
-                    <div style="margin-bottom: 0.5rem;">
-                        <strong>Servicio más solicitado:</strong> ${this.getServicioMasSolicitado(serviciosFiltrados)}
-                    </div>
-                    <div>
-                        <strong>Empleado más activo:</strong> ${this.getEmpleadoMasActivo(serviciosFiltrados)}
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        container.appendChild(reporteContent);
     },
     
     // Renderizar configuración
     renderConfiguracion: (configType, container) => {
         container.innerHTML = '';
-        
-        if (configType === 'empleados') {
-            this.renderEmpleados(container);
-        } else if (configType === 'general') {
-            this.renderConfigGeneral(container);
-        } else if (configType === 'horarios') {
-            this.renderConfigHorarios(container);
-        }
+        if      (configType === 'perfil')    UIManager.renderConfigPerfil(container);
+        else if (configType === 'taller')    UIManager.renderConfigTaller(container);
+        else if (configType === 'empleados') UIManager.renderEmpleados(container);
+        else if (configType === 'general')   UIManager.renderConfigGeneral(container);
+        else if (configType === 'horarios')  UIManager.renderConfigHorarios(container);
+    },
+
+    renderConfigPerfil: (container) => {
+        const savedName  = localStorage.getItem('th_admin_name')  || 'Administrador';
+        const savedEmail = localStorage.getItem('th_admin_email') || '';
+        const isDark     = document.documentElement.getAttribute('data-theme') === 'dark';
+        container.innerHTML = `
+        <div class="config-card">
+            <h4><i class="fas fa-user-circle" style="color:var(--primary);margin-right:0.5rem;"></i>Perfil del Administrador</h4>
+            <div class="form-group">
+                <label>Nombre del Administrador</label>
+                <input type="text" id="cfgNombre" class="form-control" value="${savedName}" placeholder="Tu nombre">
+            </div>
+            <div class="form-group">
+                <label>Correo Electrónico</label>
+                <input type="email" id="cfgEmail" class="form-control" value="${savedEmail}" placeholder="admin@taller.com">
+            </div>
+            <button class="btn btn-primary" id="savePerfilBtn"><i class="fas fa-save"></i> Guardar Perfil</button>
+        </div>
+
+        <div class="config-card" style="margin-top:1rem;">
+            <h4><i class="fas fa-key" style="color:var(--primary);margin-right:0.5rem;"></i>Cambiar Contraseña</h4>
+            <div class="form-group">
+                <label>Contraseña actual</label>
+                <input type="password" id="cfgPassActual" class="form-control" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+                <label>Nueva contraseña</label>
+                <input type="password" id="cfgPassNueva" class="form-control" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="form-group">
+                <label>Confirmar contraseña</label>
+                <input type="password" id="cfgPassConfirmar" class="form-control" placeholder="Repite la contraseña">
+            </div>
+            <button class="btn btn-primary" id="savePasswordBtn"><i class="fas fa-shield-alt"></i> Actualizar Contraseña</button>
+        </div>
+
+        <div class="config-card" style="margin-top:1rem;">
+            <h4><i class="fas fa-palette" style="color:var(--primary);margin-right:0.5rem;"></i>Apariencia</h4>
+            <div class="config-toggle-row">
+                <div>
+                    <div class="config-toggle-label">Tema Oscuro</div>
+                    <div class="config-toggle-desc">Cambia entre tema claro y oscuro</div>
+                </div>
+                <label class="theme-toggle">
+                    <input type="checkbox" id="themeToggle" ${isDark ? 'checked' : ''}>
+                    <span class="theme-toggle-slider"></span>
+                </label>
+            </div>
+        </div>`;
+    },
+
+    renderConfigTaller: (container) => {
+        const d = JSON.parse(localStorage.getItem('th_taller') || '{}');
+        container.innerHTML = `
+        <div class="config-card">
+            <h4><i class="fas fa-store" style="color:var(--primary);margin-right:0.5rem;"></i>Información del Taller</h4>
+            <div class="form-group">
+                <label>Nombre del Taller</label>
+                <input type="text" id="tallerNombre" class="form-control" value="${d.nombre||'Taller Hunter'}" placeholder="Nombre del taller">
+            </div>
+            <div class="form-group">
+                <label>Teléfono</label>
+                <input type="tel" id="tallerTelefono" class="form-control" value="${d.telefono||''}" placeholder="+1 (809) 000-0000">
+            </div>
+            <div class="form-group">
+                <label>Dirección</label>
+                <input type="text" id="tallerDireccion" class="form-control" value="${d.direccion||''}" placeholder="Calle, Ciudad, País">
+            </div>
+            <div class="form-group">
+                <label>Correo de Contacto</label>
+                <input type="email" id="tallerEmail" class="form-control" value="${d.email||''}" placeholder="info@taller.com">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                <div class="form-group">
+                    <label>Hora de Apertura</label>
+                    <input type="time" id="tallerApertura" class="form-control" value="${d.apertura||'08:00'}">
+                </div>
+                <div class="form-group">
+                    <label>Hora de Cierre</label>
+                    <input type="time" id="tallerCierre" class="form-control" value="${d.cierre||'18:00'}">
+                </div>
+            </div>
+            <button class="btn btn-primary" id="saveTallerBtn"><i class="fas fa-save"></i> Guardar Información</button>
+        </div>`;
     },
     
     // Renderizar empleados
@@ -579,10 +567,10 @@ const UIManager = {
                     <td>${serviciosAsignados}</td>
                     <td>
                         <div class="action-buttons" style="margin: 0; justify-content: center;">
-                            <button class="action-btn btn-edit" data-id="${empleado.id}" data-type="empleado" title="Editar">
+                            <button class="action-btn-icon btn-edit" data-id="${empleado.id}" data-type="empleado" title="Editar">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="action-btn btn-delete" data-id="${empleado.id}" data-type="empleado" title="Eliminar">
+                            <button class="action-btn-icon btn-delete" data-id="${empleado.id}" data-type="empleado" title="Eliminar">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -740,216 +728,27 @@ const UIManager = {
         return empleadoMasActivo || 'No asignado';
     },
     
-    // FUNCIÓN changeView ACTUALIZADA
-    changeView: (view) => {
-        console.log('UIManager.changeView llamado con:', view);
-        AppState.currentView = view;
-        
-        // Actualizar botones activos
-        document.querySelectorAll('#agendaContent .view-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.getAttribute('data-view') === view) {
-                btn.classList.add('active');
-            }
-        });
-        
-        // Ocultar todas las vistas
-        document.querySelectorAll('#agendaContent .view-content').forEach(el => {
-            el.style.display = 'none';
-        });
-        
-        // Mostrar vista seleccionada
-        const services = DataUtils.filterServices(AppState.currentTab);
-        
-        switch(view) {
-            case 'list':
-                document.getElementById('listView').style.display = 'block';
-                document.getElementById('viewTitle').textContent = 'Lista de Servicios';
-                const buttons = UIManager.renderServicesTable(services, document.getElementById('listView'));
-                // Los botones se configurarán desde main.js
-                return buttons;
-            case 'week':
-                document.getElementById('weekView').style.display = 'block';
-                document.getElementById('viewTitle').textContent = 'Vista Semanal';
-                CalendarManager.setupWeekView(
-                    document.querySelector('#weekView .calendar-container'),
-                    services
-                );
-                return null;
-            case 'calendar':
-                document.getElementById('calendarView').style.display = 'block';
-                document.getElementById('viewTitle').textContent = 'Calendario';
-                CalendarManager.setupCalendarView(
-                    document.querySelector('#calendarView .calendar-container'),
-                    services
-                );
-                return null;
-        }
-    },
-    
-    // Cambiar pestaña (todos, pendientes, en proceso, completados)
-    changeTab: (tab) => {
-        console.log('UIManager.changeTab llamado con:', tab);
-        AppState.currentTab = tab;
-        
-        // Actualizar botones activos
-        document.querySelectorAll('.tab').forEach(tabEl => {
-            tabEl.classList.remove('active');
-            if (tabEl.getAttribute('data-tab') === tab) {
-                tabEl.classList.add('active');
-            }
-        });
-        
-        // Recargar la vista actual con los servicios filtrados
-        return UIManager.changeView(AppState.currentView);
-    },
-    
-    // Cambiar página (navegación)
-    changePage: (pageName) => {
-        console.log('UIManager.changePage llamado con:', pageName);
-        AppState.currentPage = pageName;
-        
-        // Ocultar todo el contenido primero
-        document.querySelectorAll('#dynamicContent > .content-area').forEach(el => {
-            el.style.display = 'none';
-        });
-        
-        // Mostrar elementos específicos según la página
-        const statsContainer = document.getElementById('statsContainer');
-        const tabsContainer = document.getElementById('tabsContainer');
-        const printBtn = document.getElementById('printBtn');
-        const addVehicleBtn = document.getElementById('addVehicleBtn');
-        
-        if (pageName === 'agenda') {
-            // Mostrar agenda
-            document.getElementById('agendaContent').style.display = 'block';
-            statsContainer.style.display = 'grid';
-            tabsContainer.style.display = 'flex';
-            printBtn.style.display = 'inline-flex';
-            addVehicleBtn.style.display = 'inline-flex';
-            document.getElementById('pageTitle').textContent = 'Sistema de Gestión de Agenda';
-            
-            // Actualizar estadísticas y renderizar servicios
-            this.updateStatsUI();
-            const buttons = this.changeView(AppState.currentView);
-            
-            return buttons; // Devolver botones para agregar eventos
-        } else {
-            // Otras páginas
-            document.getElementById(`${pageName}Content`).style.display = 'block';
-            statsContainer.style.display = 'none';
-            tabsContainer.style.display = 'none';
-            printBtn.style.display = 'none';
-            addVehicleBtn.style.display = 'none';
-            
-            let buttons = null;
-            
-            // Renderizar contenido específico de la página
-            switch(pageName) {
-                case 'vehiculos':
-                    document.getElementById('pageTitle').textContent = 'Gestión de Vehículos';
-                    buttons = this.renderVehiculos(DataStore.vehiculos, document.getElementById('vehiculosList'));
-                    break;
-                case 'clientes':
-                    document.getElementById('pageTitle').textContent = 'Gestión de Clientes';
-                    buttons = this.renderClientes(DataStore.clientes, document.getElementById('clientesList'));
-                    break;
-                case 'servicios':
-                    document.getElementById('pageTitle').textContent = 'Tipos de Servicios';
-                    buttons = this.renderServicios(DataStore.tiposServicio, document.getElementById('serviciosList'));
-                    break;
-                case 'reportes':
-                    document.getElementById('pageTitle').textContent = 'Reportes y Estadísticas';
-                    this.renderReportes('diario', document.getElementById('reportesContentArea'));
-                    break;
-                case 'configuracion':
-                    document.getElementById('pageTitle').textContent = 'Configuración del Sistema';
-                    this.renderConfiguracion('empleados', document.getElementById('configuracionArea'));
-                    break;
-            }
-            
-            return buttons;
-        }
-    },
-    
     // Mostrar notificación
     showNotification: (message, type = 'info') => {
-        // Crear elemento de notificación
+        const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.innerHTML = `
             <div class="notification-content">
-                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <i class="fas fa-${icon}"></i>
                 <span>${message}</span>
             </div>
-            <button class="notification-close">&times;</button>
+            <button class="notification-close" aria-label="Cerrar">&times;</button>
         `;
-        
-        // Agregar estilos si no existen
-        if (!document.getElementById('notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
-            style.textContent = `
-                .notification {
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: white;
-                    padding: 1rem;
-                    border-radius: 0.5rem;
-                    box-shadow: var(--shadow-lg);
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    min-width: 300px;
-                    z-index: 1000;
-                    animation: slideIn 0.3s ease;
-                }
-                .notification-success { border-left: 4px solid var(--success); }
-                .notification-error { border-left: 4px solid var(--danger); }
-                .notification-info { border-left: 4px solid var(--primary); }
-                .notification-content {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                }
-                .notification-close {
-                    background: none;
-                    border: none;
-                    font-size: 1.5rem;
-                    cursor: pointer;
-                    color: var(--gray-500);
-                }
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        
         document.body.appendChild(notification);
-        
-        // Auto-eliminar después de 5 segundos
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 5000);
-        
-        // Cerrar al hacer clic en el botón
+        setTimeout(() => { if (notification.parentNode) notification.remove(); }, 5000);
         notification.querySelector('.notification-close').addEventListener('click', () => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
+            if (notification.parentNode) notification.remove();
         });
     }
 };
 
 // Exportar para uso en otros módulos
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { UIManager };
-}// ui.js (al final)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { UIManager };
 } else {

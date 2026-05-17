@@ -1,346 +1,359 @@
-// db.js - COMPLETO CON TODOS LOS MÉTODOS CRUD
+// db.js - COMPLETO Y ACTUALIZADO
 const DB = {
-
-    // ==================== SERVICIOS ====================
+    // ===== OBTENER SERVICIOS =====
     async getServicios() {
         try {
-            const { data, error } = await supabase
+            console.log('📡 Obteniendo servicios de Supabase...');
+            
+            const { data: servicios, error } = await supabase
                 .from('registro_servicio_vehiculo')
                 .select('*')
-                .order('fecha', { ascending: false });
-            if (error) throw error;
-            return data || [];
+                .order('fecha', { ascending: false })
+                .order('hora', { ascending: false });
+            
+            if (error) {
+                console.error('❌ Error obteniendo servicios:', error);
+                return [];
+            }
+            
+            console.log(`📊 Servicios obtenidos: ${servicios?.length || 0} registros`);
+            return servicios || [];
+            
         } catch (error) {
-            console.error('❌ Error getServicios:', error);
+            console.error('❌ Error cargando servicios:', error);
             return [];
         }
     },
-
+    
+    // ===== CREAR SERVICIO =====
     async crearServicio(datos) {
         try {
-            if (!datos.id) datos.id = `SVC_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            console.log('➕ Creando servicio en DB...', datos);
+            
+            // Asegurar que todos los campos tengan valor
+            const datosLimpios = {};
+            for (const key in datos) {
+                datosLimpios[key] = datos[key] === null ? '' : datos[key];
+            }
+            
+            // Verificar que tenga ID
+            if (!datosLimpios.id) {
+                datosLimpios.id = `SVC_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                console.log('⚠️ Generando ID automático:', datosLimpios.id);
+            }
+            
             const { data, error } = await supabase
                 .from('registro_servicio_vehiculo')
-                .insert([datos])
+                .insert([datosLimpios])
                 .select()
                 .single();
-            if (error) throw error;
+            
+            if (error) {
+                console.error('❌ Error de Supabase:', error);
+                throw error;
+            }
+            
+            console.log('✅ Servicio creado en DB:', data);
             return data;
+            
         } catch (error) {
-            console.error('❌ Error crearServicio:', error);
+            console.error('❌ Error creando servicio:', error);
             throw error;
         }
     },
-
-    // alias usado por services.js
-    async createServicio(datos) { return this.crearServicio(datos); },
-
+    
+    // ===== OBTENER DATOS PARA FORMULARIOS =====
+    async getDatosParaFormularios() {
+        try {
+            const [clientes, vehiculos, tipos, empleados] = await Promise.all([
+                this.getTodosClientes(),
+                this.getTodosVehiculos(),
+                this.getTodosTiposServicio(),
+                this.getTodosEmpleados()
+            ]);
+            
+            console.log('📋 Datos para formularios:', {
+                clientes: clientes.length,
+                vehiculos: vehiculos.length,
+                tipos: tipos.length,
+                empleados: empleados.length
+            });
+            
+            return {
+                clientes: clientes || [],
+                vehiculos: vehiculos || [],
+                tipos: tipos || [],
+                empleados: empleados || []
+            };
+            
+        } catch (error) {
+            console.error('Error obteniendo datos:', error);
+            return { clientes: [], vehiculos: [], tipos: [], empleados: [] };
+        }
+    },
+    
+    async getTodosClientes() {
+        try {
+            const { data, error } = await supabase
+                .from('clientes')
+                .select('id, nombre, telefono, email, direccion, notas')
+                .order('id', { ascending: true })
+                .limit(100);
+            
+            if (error) {
+                console.error('Error clientes:', error);
+                return [];
+            }
+            return data || [];
+        } catch (e) {
+            console.error('Excepción clientes:', e);
+            return [];
+        }
+    },
+    
+    async getTodosVehiculos() {
+        try {
+            const { data, error } = await supabase
+                .from('vehiculos')
+                .select('id, placa, marca, modelo, año, color, cliente_id, kilometraje, notas')
+                .order('id', { ascending: true })
+                .limit(100);
+            
+            if (error) {
+                console.error('Error vehiculos:', error);
+                return [];
+            }
+            return data || [];
+        } catch (e) {
+            console.error('Excepción vehiculos:', e);
+            return [];
+        }
+    },
+    
+    async getTodosTiposServicio() {
+        try {
+            const { data, error } = await supabase
+                .from('tipos_servicio')
+                .select('id, nombre, descripcion, precio, precio_base, duracion, categoria')
+                .order('nombre', { ascending: true })
+                .limit(100);
+            
+            if (error) {
+                console.error('Error tipos servicio:', error);
+                return [];
+            }
+            return data || [];
+        } catch (e) {
+            console.error('Excepción tipos servicio:', e);
+            return [];
+        }
+    },
+    
+    async getTodosEmpleados() {
+        try {
+            const { data, error } = await supabase
+                .from('empleados')
+                .select('id, nombre, especialidad, telefono, email, horario')
+                .order('id', { ascending: true })
+                .limit(100);
+            
+            if (error) {
+                console.error('Error empleados:', error);
+                return [];
+            }
+            return data || [];
+        } catch (e) {
+            console.error('Excepción empleados:', e);
+            return [];
+        }
+    },
+    
+    // ===== ACTUALIZAR SERVICIO =====
     async actualizarServicio(id, datos) {
         try {
+            console.log('✏️ Actualizando servicio:', id, datos);
+            
             const { data, error } = await supabase
                 .from('registro_servicio_vehiculo')
                 .update(datos)
                 .eq('id', id)
                 .select()
                 .single();
-            if (error) throw error;
+            
+            if (error) {
+                console.error('❌ Error actualizando:', error);
+                throw error;
+            }
+            
+            console.log('✅ Servicio actualizado:', data);
             return data;
+            
         } catch (error) {
-            console.error('❌ Error actualizarServicio:', error);
+            console.error('❌ Error en actualizarServicio:', error);
             throw error;
         }
     },
-
-    // alias usado por services.js
-    async updateServicio(id, datos) { return this.actualizarServicio(id, datos); },
-
+    
+    // ===== ELIMINAR SERVICIO =====
     async eliminarServicio(id) {
         try {
+            console.log('🗑️ Eliminando servicio:', id);
+            
             const { error } = await supabase
                 .from('registro_servicio_vehiculo')
                 .delete()
                 .eq('id', id);
-            if (error) throw error;
+            
+            if (error) {
+                console.error('❌ Error eliminando:', error);
+                throw error;
+            }
+            
+            console.log('✅ Servicio eliminado:', id);
             return true;
+            
         } catch (error) {
-            console.error('❌ Error eliminarServicio:', error);
+            console.error('❌ Error en eliminarServicio:', error);
             throw error;
         }
     },
+    
+    // ===== ALIASES EN INGLÉS PARA SERVICIOS (usados en services.js) =====
+    async createServicio(datos) { return await this.crearServicio(datos); },
+    async updateServicio(id, datos) { return await this.actualizarServicio(id, datos); },
+    async deleteServicio(id) { return await this.eliminarServicio(id); },
 
-    // alias
-    async deleteServicio(id) { return this.eliminarServicio(id); },
-
-    // ==================== CLIENTES ====================
-    async getClientes() {
-        try {
-            const { data, error } = await supabase
-                .from('clientes')
-                .select('*')
-                .order('nombre', { ascending: true });
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('❌ Error getClientes:', error);
-            return [];
-        }
-    },
-
-    async createCliente(datos) {
-        try {
-            if (!datos.id) datos.id = `CLI_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-            const { data, error } = await supabase
-                .from('clientes')
-                .insert([datos])
-                .select()
-                .single();
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            console.error('❌ Error createCliente:', error);
-            throw error;
-        }
-    },
-
-    async updateCliente(id, datos) {
-        try {
-            const { data, error } = await supabase
-                .from('clientes')
-                .update(datos)
-                .eq('id', id)
-                .select()
-                .single();
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            console.error('❌ Error updateCliente:', error);
-            throw error;
-        }
-    },
-
-    async deleteCliente(id) {
-        try {
-            const { error } = await supabase
-                .from('clientes')
-                .delete()
-                .eq('id', id);
-            if (error) throw error;
-            return true;
-        } catch (error) {
-            console.error('❌ Error deleteCliente:', error);
-            throw error;
-        }
-    },
-
-    // ==================== VEHÍCULOS ====================
-    async getVehiculos() {
-        try {
-            const { data, error } = await supabase
-                .from('vehiculos')
-                .select('*')
-                .order('marca', { ascending: true });
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('❌ Error getVehiculos:', error);
-            return [];
-        }
-    },
-
+    // ===== CRUD VEHÍCULOS =====
     async createVehiculo(datos) {
         try {
-            if (!datos.id) datos.id = `VEH_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
             const { data, error } = await supabase
-                .from('vehiculos')
-                .insert([datos])
-                .select()
-                .single();
+                .from('vehiculos').insert([datos]).select().single();
             if (error) throw error;
             return data;
-        } catch (error) {
-            console.error('❌ Error createVehiculo:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error creando vehículo:', error); throw error; }
     },
-
     async updateVehiculo(id, datos) {
         try {
             const { data, error } = await supabase
-                .from('vehiculos')
-                .update(datos)
-                .eq('id', id)
-                .select()
-                .single();
+                .from('vehiculos').update(datos).eq('id', id).select().single();
             if (error) throw error;
             return data;
-        } catch (error) {
-            console.error('❌ Error updateVehiculo:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error actualizando vehículo:', error); throw error; }
     },
-
     async deleteVehiculo(id) {
         try {
-            const { error } = await supabase
-                .from('vehiculos')
-                .delete()
-                .eq('id', id);
+            const { error } = await supabase.from('vehiculos').delete().eq('id', id);
             if (error) throw error;
             return true;
-        } catch (error) {
-            console.error('❌ Error deleteVehiculo:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error eliminando vehículo:', error); throw error; }
     },
 
-    // ==================== TIPOS DE SERVICIO ====================
-    async getTiposServicio() {
+    // ===== CRUD CLIENTES =====
+    async createCliente(datos) {
         try {
             const { data, error } = await supabase
-                .from('tipos_servicio')
-                .select('*')
-                .order('nombre', { ascending: true });
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('❌ Error getTiposServicio:', error);
-            return [];
-        }
-    },
-
-    async createTipoServicio(datos) {
-        try {
-            if (!datos.id) datos.id = `TS_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-            const { data, error } = await supabase
-                .from('tipos_servicio')
-                .insert([datos])
-                .select()
-                .single();
+                .from('clientes').insert([datos]).select().single();
             if (error) throw error;
             return data;
-        } catch (error) {
-            console.error('❌ Error createTipoServicio:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error creando cliente:', error); throw error; }
+    },
+    async updateCliente(id, datos) {
+        try {
+            const { data, error } = await supabase
+                .from('clientes').update(datos).eq('id', id).select().single();
+            if (error) throw error;
+            return data;
+        } catch (error) { console.error('❌ Error actualizando cliente:', error); throw error; }
+    },
+    async deleteCliente(id) {
+        try {
+            const { error } = await supabase.from('clientes').delete().eq('id', id);
+            if (error) throw error;
+            return true;
+        } catch (error) { console.error('❌ Error eliminando cliente:', error); throw error; }
     },
 
+    // ===== CRUD TIPOS DE SERVICIO =====
+    async createTipoServicio(datos) {
+        try {
+            const { data, error } = await supabase
+                .from('tipos_servicio').insert([datos]).select().single();
+            if (error) throw error;
+            return data;
+        } catch (error) { console.error('❌ Error creando tipo de servicio:', error); throw error; }
+    },
     async updateTipoServicio(id, datos) {
         try {
             const { data, error } = await supabase
-                .from('tipos_servicio')
-                .update(datos)
-                .eq('id', id)
-                .select()
-                .single();
+                .from('tipos_servicio').update(datos).eq('id', id).select().single();
             if (error) throw error;
             return data;
-        } catch (error) {
-            console.error('❌ Error updateTipoServicio:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error actualizando tipo de servicio:', error); throw error; }
     },
-
     async deleteTipoServicio(id) {
         try {
-            const { error } = await supabase
-                .from('tipos_servicio')
-                .delete()
-                .eq('id', id);
+            const { error } = await supabase.from('tipos_servicio').delete().eq('id', id);
             if (error) throw error;
             return true;
-        } catch (error) {
-            console.error('❌ Error deleteTipoServicio:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error eliminando tipo de servicio:', error); throw error; }
     },
 
-    // ==================== EMPLEADOS ====================
-    async getEmpleados() {
-        try {
-            const { data, error } = await supabase
-                .from('empleados')
-                .select('*')
-                .order('nombre', { ascending: true });
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('❌ Error getEmpleados:', error);
-            return [];
-        }
-    },
-
+    // ===== CRUD EMPLEADOS =====
     async createEmpleado(datos) {
         try {
-            if (!datos.id) datos.id = `EMP_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
             const { data, error } = await supabase
-                .from('empleados')
-                .insert([datos])
-                .select()
-                .single();
+                .from('empleados').insert([datos]).select().single();
             if (error) throw error;
             return data;
-        } catch (error) {
-            console.error('❌ Error createEmpleado:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error creando empleado:', error); throw error; }
     },
-
     async updateEmpleado(id, datos) {
         try {
             const { data, error } = await supabase
-                .from('empleados')
-                .update(datos)
-                .eq('id', id)
-                .select()
-                .single();
+                .from('empleados').update(datos).eq('id', id).select().single();
             if (error) throw error;
             return data;
-        } catch (error) {
-            console.error('❌ Error updateEmpleado:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error actualizando empleado:', error); throw error; }
     },
-
     async deleteEmpleado(id) {
         try {
-            const { error } = await supabase
-                .from('empleados')
-                .delete()
-                .eq('id', id);
+            const { error } = await supabase.from('empleados').delete().eq('id', id);
             if (error) throw error;
             return true;
-        } catch (error) {
-            console.error('❌ Error deleteEmpleado:', error);
-            throw error;
-        }
+        } catch (error) { console.error('❌ Error eliminando empleado:', error); throw error; }
     },
 
-    // ==================== HELPERS / COMPATIBILIDAD ====================
-    async getTodosClientes() { return this.getClientes(); },
-    async getTodosVehiculos() { return this.getVehiculos(); },
-    async getTodosTiposServicio() { return this.getTiposServicio(); },
-    async getTodosEmpleados() { return this.getEmpleados(); },
-
-    async getDatosParaFormularios() {
-        const [clientes, vehiculos, tipos, empleados] = await Promise.all([
-            this.getClientes(),
-            this.getVehiculos(),
-            this.getTiposServicio(),
-            this.getEmpleados()
-        ]);
-        return { clientes, vehiculos, tipos, empleados };
-    },
-
+    // ===== TEST DE CONEXIÓN =====
     async testConexion() {
-        const tablas = ['clientes', 'vehiculos', 'tipos_servicio', 'empleados', 'registro_servicio_vehiculo'];
-        const resultados = {};
-        for (const tabla of tablas) {
-            const { data, error } = await supabase.from(tabla).select('*').limit(1);
-            resultados[tabla] = error ? { error: error.message } : { ok: true, count: data.length };
-            console.log(error ? `❌ ${tabla}: ${error.message}` : `✅ ${tabla}`);
+        console.log('🧪 Test de conexión...');
+        
+        try {
+            const tablas = ['clientes', 'vehiculos', 'tipos_servicio', 'empleados', 'registro_servicio_vehiculo'];
+            const resultados = {};
+            
+            for (let tabla of tablas) {
+                const { data, error } = await supabase
+                    .from(tabla)
+                    .select('*')
+                    .limit(1);
+                
+                if (error) {
+                    resultados[tabla] = { error: error.message };
+                    console.log(`❌ ${tabla}: ${error.message}`);
+                } else {
+                    resultados[tabla] = { count: data.length };
+                    console.log(`✅ ${tabla}: ${data.length} registros`);
+                }
+            }
+            
+            return { success: true, resultados };
+            
+        } catch (error) {
+            console.error('Error test:', error);
+            return { success: false, error: error.message };
         }
-        return resultados;
     }
 };
 
+// Exportar para uso global
 window.DB = DB;

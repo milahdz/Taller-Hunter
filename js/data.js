@@ -46,7 +46,8 @@ const DataUtils = {
     formatDate: (dateStr) => {
         if (!dateStr) return 'N/A';
         try {
-            const date = new Date(dateStr);
+            // Parse as local noon to avoid UTC offset shifting the day
+            const date = new Date(dateStr + 'T12:00:00');
             return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
         } catch (e) {
             return dateStr;
@@ -107,10 +108,10 @@ const DataUtils = {
     
     // Obtener servicios por fecha
     getServicesByDate: (date) => {
-        const targetDate = new Date(date);
+        // Compare as ISO date strings to avoid timezone shifting
+        const target = typeof date === 'string' ? date.split('T')[0] : date.toISOString().split('T')[0];
         return DataStore.services.filter(service => {
-            const serviceDate = new Date(service.date);
-            return serviceDate.toDateString() === targetDate.toDateString();
+            return (service.date || '').split('T')[0] === target;
         });
     },
     

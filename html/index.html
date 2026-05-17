@@ -4,17 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taller Hunter - Sistema de Gestión</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/styles.css">
 </head>
 <body>
-    <div class="container">
+
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+    <div class="loading-logo">
+        <i class="fas fa-tools"></i>
+        <span>Taller Hunter</span>
+    </div>
+    <div class="loading-spinner"></div>
+    <p class="loading-text">Cargando sistema...</p>
+</div>
+
+<div class="container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
                 <i class="fas fa-tools logo-icon"></i>
                 <h1>Taller Hunter</h1>
             </div>
+
+            <div class="sidebar-user">
+                <div class="user-avatar">AD</div>
+                <div class="user-info">
+                    <div class="user-name">Administrador</div>
+                    <div class="user-role">Sistema</div>
+                </div>
+            </div>
+
             <nav class="nav">
                 <a href="#" class="nav-item active" data-page="agenda" id="navAgenda">
                     <i class="fas fa-calendar-alt"></i>
@@ -65,20 +88,32 @@
             <!-- Stats (Solo visible en Agenda) -->
             <div class="stats-container" id="statsContainer">
                 <div class="stat-card stat-total">
-                    <h3>Total</h3>
-                    <div class="stat-value" id="totalCount">1</div>
+                    <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+                    <div class="stat-info">
+                        <h3>Total</h3>
+                        <div class="stat-value" id="totalCount">0</div>
+                    </div>
                 </div>
                 <div class="stat-card stat-pendientes">
-                    <h3>Pendientes</h3>
-                    <div class="stat-value" id="pendingCount">0</div>
+                    <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                    <div class="stat-info">
+                        <h3>Pendientes</h3>
+                        <div class="stat-value" id="pendingCount">0</div>
+                    </div>
                 </div>
                 <div class="stat-card stat-proceso">
-                    <h3>En Proceso</h3>
-                    <div class="stat-value" id="processCount">0</div>
+                    <div class="stat-icon"><i class="fas fa-tools"></i></div>
+                    <div class="stat-info">
+                        <h3>En Proceso</h3>
+                        <div class="stat-value" id="processCount">0</div>
+                    </div>
                 </div>
                 <div class="stat-card stat-completados">
-                    <h3>Completados</h3>
-                    <div class="stat-value" id="completedCount">1</div>
+                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-info">
+                        <h3>Completados</h3>
+                        <div class="stat-value" id="completedCount">0</div>
+                    </div>
                 </div>
             </div>
             
@@ -182,7 +217,9 @@
                     <div class="content-header">
                         <h3>Configuración del Sistema</h3>
                         <div class="view-options">
-                            <button class="view-btn active" data-config="empleados">Empleados</button>
+                            <button class="view-btn active" data-config="perfil">Perfil</button>
+                            <button class="view-btn" data-config="taller">Taller</button>
+                            <button class="view-btn" data-config="empleados">Empleados</button>
                             <button class="view-btn" data-config="general">General</button>
                             <button class="view-btn" data-config="horarios">Horarios</button>
                         </div>
@@ -196,50 +233,64 @@
     </div>
     
    <!-- Modal para agendar nuevo vehículo -->
-<div class="modal" id="scheduleModal">
+<div class="modal" id="scheduleModal" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Agendar Nuevo Vehículo</h3>
-            <button class="close-modal" id="closeModal">&times;</button>
+            <h3 id="scheduleModalTitle">Agendar Nuevo Vehículo</h3>
+            <button class="close-modal" id="closeModal" aria-label="Cerrar">&times;</button>
         </div>
         <div class="modal-body">
             <form id="scheduleForm">
-                <!-- Vehículo (TEXTO LIBRE) -->
-                <div class="form-group">
-                    <label for="vehiculo" class="required">Vehículo / Placa</label>
-                    <input type="text" id="vehiculo" class="form-control" placeholder="Ej: Toyota Corolla ABC-123" required>
-                </div>
-                
-                <!-- Cliente (TEXTO LIBRE) -->
+                <!-- Cliente -->
                 <div class="form-group">
                     <label for="cliente" class="required">Cliente</label>
-                    <input type="text" id="cliente" class="form-control" placeholder="Nombre del cliente" required>
+                    <select id="cliente" class="form-control" required>
+                        <option value="">-- Seleccionar cliente --</option>
+                    </select>
                 </div>
-                
-                <!-- Fecha -->
+
+                <!-- Vehículo (filtrado por cliente) -->
                 <div class="form-group">
-                    <label for="fecha" class="required">Fecha</label>
-                    <input type="date" id="fecha" class="form-control" required>
+                    <label for="vehiculo" class="required">Vehículo</label>
+                    <select id="vehiculo" class="form-control" required>
+                        <option value="">-- Primero selecciona un cliente --</option>
+                    </select>
                 </div>
-                
-                <!-- Servicio (TEXTO LIBRE) -->
-                <div class="form-group">
-                    <label for="servicio" class="required">Servicio</label>
-                    <input type="text" id="servicio" class="form-control" placeholder="Ej: Cambio de aceite, Alineación" required>
-                </div>
-                
-                <!-- Empleado (TEXTO LIBRE) -->
-                <div class="form-group">
-                    <label for="empleado" class="required">Empleado</label>
-                    <input type="text" id="empleado" class="form-control" placeholder="Nombre del empleado" required>
-                </div>
-                
-                <!-- Teléfono (opcional) -->
+
+                <!-- Teléfono (auto-rellenado desde cliente) -->
                 <div class="form-group">
                     <label for="telefono">Teléfono de Contacto</label>
-                    <input type="tel" id="telefono" class="form-control" placeholder="+1234567890">
+                    <input type="tel" id="telefono" class="form-control" placeholder="Se rellena automáticamente" readonly>
                 </div>
-                
+
+                <!-- Fecha y Hora -->
+                <div class="form-group" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label for="fecha" class="required">Fecha</label>
+                        <input type="date" id="fecha" class="form-control" required>
+                    </div>
+                    <div>
+                        <label for="hora" class="required">Hora</label>
+                        <input type="time" id="hora" class="form-control" value="08:00" required>
+                    </div>
+                </div>
+
+                <!-- Servicio -->
+                <div class="form-group">
+                    <label for="servicio" class="required">Tipo de Servicio</label>
+                    <select id="servicio" class="form-control" required>
+                        <option value="">-- Seleccionar servicio --</option>
+                    </select>
+                </div>
+
+                <!-- Empleado -->
+                <div class="form-group">
+                    <label for="empleado" class="required">Empleado</label>
+                    <select id="empleado" class="form-control" required>
+                        <option value="">-- Seleccionar empleado --</option>
+                    </select>
+                </div>
+
                 <!-- Notas -->
                 <div class="form-group">
                     <label for="notas">Notas Adicionales</label>
@@ -255,11 +306,11 @@
 </div>
     
     <!-- Modal para vehículos -->
-    <div class="modal" id="vehiculoModal">
+    <div class="modal" id="vehiculoModal" role="dialog" aria-modal="true" aria-labelledby="vehiculoModalTitle">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="vehiculoModalTitle">Nuevo Vehículo</h3>
-                <button class="close-modal" id="closeVehiculoModal">&times;</button>
+                <button class="close-modal" id="closeVehiculoModal" aria-label="Cerrar">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="vehiculoForm">
@@ -315,11 +366,11 @@
     </div>
 
     <!-- Modal para Clientes -->
-    <div class="modal" id="clienteModal">
+    <div class="modal" id="clienteModal" role="dialog" aria-modal="true" aria-labelledby="clienteModalTitle">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="clienteModalTitle">Nuevo Cliente</h3>
-                <button class="close-modal" id="closeClienteModal">&times;</button>
+                <button class="close-modal" id="closeClienteModal" aria-label="Cerrar">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="clienteForm">
@@ -357,11 +408,11 @@
     </div>
 
     <!-- Modal para Tipos de Servicio -->
-    <div class="modal" id="servicioModal">
+    <div class="modal" id="servicioModal" role="dialog" aria-modal="true" aria-labelledby="servicioModalTitle">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="servicioModalTitle">Nuevo Tipo de Servicio</h3>
-                <button class="close-modal" id="closeServicioModal">&times;</button>
+                <button class="close-modal" id="closeServicioModal" aria-label="Cerrar">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="servicioForm">
@@ -417,11 +468,11 @@
     </div>
 
     <!-- Modal para Configuración de Empleados -->
-    <div class="modal" id="empleadoModal">
+    <div class="modal" id="empleadoModal" role="dialog" aria-modal="true" aria-labelledby="empleadoModalTitle">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="empleadoModalTitle">Nuevo Empleado</h3>
-                <button class="close-modal" id="closeEmpleadoModal">&times;</button>
+                <button class="close-modal" id="closeEmpleadoModal" aria-label="Cerrar">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="empleadoForm">
@@ -476,6 +527,7 @@
 
 
     <!-- Scripts modulares -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="../js/data.js"></script>
     <script src="../js/db.js"></script>
     <script src="../js/services.js"></script>
@@ -485,251 +537,21 @@
     <script src="../js/agenda.js"></script>
     <script src="../js/main.js"></script>
 
-    <script>
-// SCRIPT DE DIAGNÓSTICO
-console.log('🔧 EJECUTANDO DIAGNÓSTICO...');
-
-// 1. Verificar todos los elementos del modal
-const elementosModal = [
-    'scheduleModal', 'scheduleForm', 'saveScheduleBtn', 'cancelBtn', 'closeModal',
-    'vehiculo_nuevo', 'cliente_nuevo', 'fecha', 'servicio', 'empleado', 'telefono', 'notas'
-];
-
-console.log('📋 Elementos del modal:');
-elementosModal.forEach(id => {
-    const el = document.getElementById(id);
-    console.log(`  ${id}:`, el ? '✅ Existe' : '❌ NO EXISTE');
-    if (el) {
-        console.log(`    - Tipo:`, el.tagName);
-        console.log(`    - Valor:`, el.value || '(sin valor)');
-    }
-});
-
-// 2. Verificar si supabase está disponible
-console.log('🌐 Supabase:', window.supabase ? '✅ Disponible' : '❌ NO disponible');
-
-// 3. Función de prueba directa
-window.probarGuardado = async function() {
-    console.log('🧪 Probando guardado directo...');
-    
-    const datos = {
-        id: 'TEST_' + Date.now(),
-        vehiculo_id: '1',
-        cliente_id: 'CLI_TEST',
-        tipo_servicio_id: 'SVC_TEST',
-        empleado_id: 'Empleado Test',
-        fecha: new Date().toISOString().split('T')[0],
-        hora: '08:00',
-        estado: 'pending',
-        notas: 'Prueba directa'
-    };
-    
-    try {
-        const { data, error } = await supabase
-            .from('registro_servicio_vehiculo')
-            .insert([datos])
-            .select()
-            .single();
-        
-        if (error) throw error;
-        console.log('✅ Prueba exitosa:', data);
-        alert('✅ Prueba de conexión exitosa!');
-    } catch (error) {
-        console.error('❌ Error en prueba:', error);
-        alert('❌ Error: ' + error.message);
-    }
-};
-
-console.log('✅ Diagnóstico completo');
-console.log('💡 Para probar conexión directa, ejecuta: probarGuardado()');
-</script>
-<script>
-fetch("https://api.allorigins.win/raw?url=https://zenquotes.io/api/random")
-  .then(response => response.json())
-  .then(data => {
-    document.getElementById("frase").textContent = '"' + data[0].q + '"';
-    document.getElementById("autor").textContent = "- " + data[0].a;
-  })
-  .catch(error => {
-    document.getElementById("frase").textContent = "No se pudo cargar la frase.";
-    console.log(error);
-  });
-</script>
-
-    <!-- ==================== AUTH & ROLES ==================== -->
-    <script>
-    // ===== PERMISOS POR ROL =====
-    // Qué páginas puede ver cada rol
-    const PERMISOS_ROL = {
-        admin:     ['agenda', 'vehiculos', 'clientes', 'servicios', 'reportes', 'configuracion'],
-        recepcion: ['agenda', 'clientes', 'reportes'],
-        mecanico:  ['agenda', 'vehiculos'],
-        empleado:  ['agenda']
-    };
-
-    const LABELS_ROL = {
-        admin:     { texto: 'Administrador', color: '#1a56db', icono: 'fa-user-shield' },
-        recepcion: { texto: 'Recepción',     color: '#0e9f6e', icono: 'fa-headset'     },
-        mecanico:  { texto: 'Mecánico',      color: '#f59e0b', icono: 'fa-wrench'      },
-        empleado:  { texto: 'Empleado',      color: '#6b7280', icono: 'fa-user'        }
-    };
-
-    // ===== VERIFICAR SESIÓN AL CARGAR =====
-    function verificarAuth() {
-        const userData = localStorage.getItem('tallerhunter_user');
-        if (!userData) {
-            // No hay sesión → redirigir al login
-            window.location.href = 'Login.html';
-            return null;
-        }
-        try {
-            return JSON.parse(userData);
-        } catch {
-            localStorage.removeItem('tallerhunter_user');
-            window.location.href = 'Login.html';
-            return null;
-        }
-    }
-
-    // ===== APLICAR ROLES AL SIDEBAR =====
-    function aplicarRoles(user) {
-        const rol = user.rol || 'empleado';
-        const paginasPermitidas = PERMISOS_ROL[rol] || PERMISOS_ROL['empleado'];
-        const labelRol = LABELS_ROL[rol] || LABELS_ROL['empleado'];
-
-        // Ocultar nav-items según el rol
-        document.querySelectorAll('.nav-item').forEach(item => {
-            const pagina = item.getAttribute('data-page');
-            if (!paginasPermitidas.includes(pagina)) {
-                item.style.display = 'none';
-            }
-        });
-
-        // Inyectar tarjeta de usuario en el sidebar
-        const nav = document.querySelector('.nav');
-        if (nav) {
-            const iniciales = user.nombre
-                ? user.nombre.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
-                : 'U';
-
-            const userCard = document.createElement('div');
-            userCard.id = 'userCard';
-            userCard.innerHTML = `
-                <div style="
-                    margin: 0 1rem 1rem;
-                    padding: 0.75rem 1rem;
-                    background: var(--gray-50);
-                    border-radius: 0.5rem;
-                    border: 1px solid var(--gray-200);
-                ">
-                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
-                        <div style="
-                            width:36px;height:36px;border-radius:50%;
-                            background:${labelRol.color};color:white;
-                            display:flex;align-items:center;justify-content:center;
-                            font-weight:700;font-size:0.85rem;flex-shrink:0;
-                        ">${iniciales}</div>
-                        <div style="min-width:0;">
-                            <div style="font-weight:600;font-size:0.875rem;color:var(--gray-800);
-                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                ${user.nombre}
-                            </div>
-                            <div style="font-size:0.75rem;color:${labelRol.color};font-weight:500;">
-                                <i class="fas ${labelRol.icono}"></i> ${labelRol.texto}
-                            </div>
-                        </div>
-                    </div>
-                    <button onclick="cerrarSesion()" style="
-                        width:100%;padding:0.4rem;border:1px solid #fecaca;
-                        background:#fee2e2;color:#dc2626;border-radius:0.375rem;
-                        cursor:pointer;font-size:0.8rem;font-weight:500;
-                        display:flex;align-items:center;justify-content:center;gap:0.4rem;
-                    ">
-                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
-                    </button>
-                </div>
-            `;
-            nav.parentNode.insertBefore(userCard, nav);
-        }
-
-        // Guardar rol globalmente para validaciones al cambiar página
-        window._userRol = rol;
-        window._paginasPermitidas = paginasPermitidas;
-        window._userName = user.nombre;
-    }
-
-    // ===== PROTEGER CAMBIO DE PÁGINA =====
-    // Sobreescribir cargarPagina para que valide permisos
-    const _cargarPaginaOriginal = typeof cargarPagina === 'function' ? cargarPagina : null;
-
-    function cargarPaginaConRol(pagina) {
-        const permitidas = window._paginasPermitidas || ['agenda'];
-        if (!permitidas.includes(pagina)) {
-            mostrarMensajeAccesoDenegado(pagina);
-            return;
-        }
-        if (_cargarPaginaOriginal) _cargarPaginaOriginal(pagina);
-    }
-
-    function mostrarMensajeAccesoDenegado(pagina) {
-        // Encontrar la primera content-area visible y mostrar el mensaje ahí
-        document.querySelectorAll('#dynamicContent > .content-area').forEach(el => {
-            el.style.display = 'none';
-        });
-        const agendaContent = document.getElementById('agendaContent');
-        if (agendaContent) {
-            agendaContent.style.display = 'block';
-            const listView = document.getElementById('listView');
-            if (listView) {
-                listView.innerHTML = `
-                    <div style="text-align:center;padding:4rem 2rem;">
-                        <div style="font-size:4rem;color:#fecaca;margin-bottom:1rem;">
-                            <i class="fas fa-lock"></i>
-                        </div>
-                        <h3 style="color:#dc2626;margin-bottom:0.5rem;">Acceso Denegado</h3>
-                        <p style="color:var(--gray-600);">
-                            Tu rol <strong>${LABELS_ROL[window._userRol]?.texto || 'actual'}</strong>
-                            no tiene permisos para ver esta sección.
-                        </p>
-                    </div>`;
-            }
-        }
-    }
-
-    // ===== CERRAR SESIÓN =====
-    function cerrarSesion() {
-        if (confirm('¿Deseas cerrar sesión?')) {
-            localStorage.removeItem('tallerhunter_user');
-            window.location.href = 'Login.html';
-        }
-    }
-
-    // ===== INICIALIZAR =====
-    document.addEventListener('DOMContentLoaded', () => {
-        const user = verificarAuth();
-        if (!user) return; // redirige automáticamente
-
-        aplicarRoles(user);
-
-        // Reemplazar cargarPagina con la versión protegida
-        // Esperar a que main.js defina la función y luego parchearla
-        setTimeout(() => {
-            if (typeof cargarPagina === 'function') {
-                const _orig = cargarPagina;
-                window.cargarPagina = function(pagina) {
-                    const permitidas = window._paginasPermitidas || ['agenda'];
-                    if (!permitidas.includes(pagina)) {
-                        mostrarMensajeAccesoDenegado(pagina);
-                        return;
-                    }
-                    _orig(pagina);
-                };
-            }
-        }, 200);
-    });
-    </script>
+<!-- Modal de Confirmación Global -->
+<div id="confirmModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99999; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; padding:28px 32px; max-width:400px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3); text-align:center;">
+        <div style="width:56px; height:56px; background:#fef3c7; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+            <i class="fas fa-exclamation-triangle" style="color:#f59e0b; font-size:22px;"></i>
+        </div>
+        <h3 style="margin:0 0 8px; font-size:18px; color:#111827;">¿Estás seguro?</h3>
+        <p id="confirmMsg" style="margin:0 0 24px; color:#6b7280; font-size:14px;">¿Estás seguro de realizar esta acción?</p>
+        <div style="display:flex; gap:12px; justify-content:center;">
+            <button id="confirmCancelBtn" style="padding:10px 24px; border:1.5px solid #d1d5db; background:#fff; color:#374151; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer;">Cancelar</button>
+            <button id="confirmOkBtn" style="padding:10px 24px; border:none; background:#2563eb; color:#fff; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer;">Confirmar</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
 
-<!--Sin cambios desde la version 2-->

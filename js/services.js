@@ -16,7 +16,7 @@ const ServiceManager = {
                 hora: serviceData.time,
                 tipo_servicio: serviceData.service,
                 empleado_id: empleado?.id || '',
-                estado: 'pending',
+                estado: 'Pendiente',
                 notas: serviceData.notes || ''
             };
             
@@ -90,17 +90,17 @@ const ServiceManager = {
     
     // Cambiar estado de cita
     async changeServiceStatus(serviceId, newStatus) {
-        return await this.updateService(serviceId, { status: newStatus });
+        return await this.updateService(serviceId, { estado: newStatus });
     },
-    
+
     // Completar cita
     async completeService(serviceId) {
-        return await this.changeServiceStatus(serviceId, 'completed');
+        return await this.changeServiceStatus(serviceId, 'Completado');
     },
-    
+
     // Poner en proceso
     async startService(serviceId) {
-        return await this.changeServiceStatus(serviceId, 'process');
+        return await this.changeServiceStatus(serviceId, 'En Proceso');
     }
 };
 
