@@ -332,7 +332,7 @@
                 
                 // Redirigir después de 2 segundos
                 setTimeout(() => {
-                    window.location.href = 'dashboard.html';
+                    window.location.href = 'index.html';
                 }, 2000);
                 
                 return true;
@@ -375,7 +375,7 @@
                     const user = JSON.parse(userData);
                     showMessage(`Bienvenido de nuevo ${user.nombre}. Redirigiendo...`, 'success');
                     setTimeout(() => {
-                        window.location.href = 'dashboard.html';
+                        window.location.href = 'index.html';
                     }, 1500);
                 } catch (error) {
                     localStorage.removeItem('tallerhunter_user');

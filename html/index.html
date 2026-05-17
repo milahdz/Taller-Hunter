@@ -15,14 +15,6 @@
                 <i class="fas fa-tools logo-icon"></i>
                 <h1>Taller Hunter</h1>
             </div>
-             <!-- Boton de frase del dia para la clase de Nolbert -->
-              <button id="btnFrase">Nueva frase</button>
-           <div class="quote-box">
-  <h2>💡 Frase del día</h2>
-  <p id="frase">
-  <p id="autor"></p>
-</div>
-            
             <nav class="nav">
                 <a href="#" class="nav-item active" data-page="agenda" id="navAgenda">
                     <i class="fas fa-calendar-alt"></i>
@@ -563,6 +555,180 @@ fetch("https://api.allorigins.win/raw?url=https://zenquotes.io/api/random")
     console.log(error);
   });
 </script>
+
+    <!-- ==================== AUTH & ROLES ==================== -->
+    <script>
+    // ===== PERMISOS POR ROL =====
+    // Qué páginas puede ver cada rol
+    const PERMISOS_ROL = {
+        admin:     ['agenda', 'vehiculos', 'clientes', 'servicios', 'reportes', 'configuracion'],
+        recepcion: ['agenda', 'clientes', 'reportes'],
+        mecanico:  ['agenda', 'vehiculos'],
+        empleado:  ['agenda']
+    };
+
+    const LABELS_ROL = {
+        admin:     { texto: 'Administrador', color: '#1a56db', icono: 'fa-user-shield' },
+        recepcion: { texto: 'Recepción',     color: '#0e9f6e', icono: 'fa-headset'     },
+        mecanico:  { texto: 'Mecánico',      color: '#f59e0b', icono: 'fa-wrench'      },
+        empleado:  { texto: 'Empleado',      color: '#6b7280', icono: 'fa-user'        }
+    };
+
+    // ===== VERIFICAR SESIÓN AL CARGAR =====
+    function verificarAuth() {
+        const userData = localStorage.getItem('tallerhunter_user');
+        if (!userData) {
+            // No hay sesión → redirigir al login
+            window.location.href = 'Login.html';
+            return null;
+        }
+        try {
+            return JSON.parse(userData);
+        } catch {
+            localStorage.removeItem('tallerhunter_user');
+            window.location.href = 'Login.html';
+            return null;
+        }
+    }
+
+    // ===== APLICAR ROLES AL SIDEBAR =====
+    function aplicarRoles(user) {
+        const rol = user.rol || 'empleado';
+        const paginasPermitidas = PERMISOS_ROL[rol] || PERMISOS_ROL['empleado'];
+        const labelRol = LABELS_ROL[rol] || LABELS_ROL['empleado'];
+
+        // Ocultar nav-items según el rol
+        document.querySelectorAll('.nav-item').forEach(item => {
+            const pagina = item.getAttribute('data-page');
+            if (!paginasPermitidas.includes(pagina)) {
+                item.style.display = 'none';
+            }
+        });
+
+        // Inyectar tarjeta de usuario en el sidebar
+        const nav = document.querySelector('.nav');
+        if (nav) {
+            const iniciales = user.nombre
+                ? user.nombre.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                : 'U';
+
+            const userCard = document.createElement('div');
+            userCard.id = 'userCard';
+            userCard.innerHTML = `
+                <div style="
+                    margin: 0 1rem 1rem;
+                    padding: 0.75rem 1rem;
+                    background: var(--gray-50);
+                    border-radius: 0.5rem;
+                    border: 1px solid var(--gray-200);
+                ">
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                        <div style="
+                            width:36px;height:36px;border-radius:50%;
+                            background:${labelRol.color};color:white;
+                            display:flex;align-items:center;justify-content:center;
+                            font-weight:700;font-size:0.85rem;flex-shrink:0;
+                        ">${iniciales}</div>
+                        <div style="min-width:0;">
+                            <div style="font-weight:600;font-size:0.875rem;color:var(--gray-800);
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                ${user.nombre}
+                            </div>
+                            <div style="font-size:0.75rem;color:${labelRol.color};font-weight:500;">
+                                <i class="fas ${labelRol.icono}"></i> ${labelRol.texto}
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="cerrarSesion()" style="
+                        width:100%;padding:0.4rem;border:1px solid #fecaca;
+                        background:#fee2e2;color:#dc2626;border-radius:0.375rem;
+                        cursor:pointer;font-size:0.8rem;font-weight:500;
+                        display:flex;align-items:center;justify-content:center;gap:0.4rem;
+                    ">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </button>
+                </div>
+            `;
+            nav.parentNode.insertBefore(userCard, nav);
+        }
+
+        // Guardar rol globalmente para validaciones al cambiar página
+        window._userRol = rol;
+        window._paginasPermitidas = paginasPermitidas;
+        window._userName = user.nombre;
+    }
+
+    // ===== PROTEGER CAMBIO DE PÁGINA =====
+    // Sobreescribir cargarPagina para que valide permisos
+    const _cargarPaginaOriginal = typeof cargarPagina === 'function' ? cargarPagina : null;
+
+    function cargarPaginaConRol(pagina) {
+        const permitidas = window._paginasPermitidas || ['agenda'];
+        if (!permitidas.includes(pagina)) {
+            mostrarMensajeAccesoDenegado(pagina);
+            return;
+        }
+        if (_cargarPaginaOriginal) _cargarPaginaOriginal(pagina);
+    }
+
+    function mostrarMensajeAccesoDenegado(pagina) {
+        // Encontrar la primera content-area visible y mostrar el mensaje ahí
+        document.querySelectorAll('#dynamicContent > .content-area').forEach(el => {
+            el.style.display = 'none';
+        });
+        const agendaContent = document.getElementById('agendaContent');
+        if (agendaContent) {
+            agendaContent.style.display = 'block';
+            const listView = document.getElementById('listView');
+            if (listView) {
+                listView.innerHTML = `
+                    <div style="text-align:center;padding:4rem 2rem;">
+                        <div style="font-size:4rem;color:#fecaca;margin-bottom:1rem;">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <h3 style="color:#dc2626;margin-bottom:0.5rem;">Acceso Denegado</h3>
+                        <p style="color:var(--gray-600);">
+                            Tu rol <strong>${LABELS_ROL[window._userRol]?.texto || 'actual'}</strong>
+                            no tiene permisos para ver esta sección.
+                        </p>
+                    </div>`;
+            }
+        }
+    }
+
+    // ===== CERRAR SESIÓN =====
+    function cerrarSesion() {
+        if (confirm('¿Deseas cerrar sesión?')) {
+            localStorage.removeItem('tallerhunter_user');
+            window.location.href = 'Login.html';
+        }
+    }
+
+    // ===== INICIALIZAR =====
+    document.addEventListener('DOMContentLoaded', () => {
+        const user = verificarAuth();
+        if (!user) return; // redirige automáticamente
+
+        aplicarRoles(user);
+
+        // Reemplazar cargarPagina con la versión protegida
+        // Esperar a que main.js defina la función y luego parchearla
+        setTimeout(() => {
+            if (typeof cargarPagina === 'function') {
+                const _orig = cargarPagina;
+                window.cargarPagina = function(pagina) {
+                    const permitidas = window._paginasPermitidas || ['agenda'];
+                    if (!permitidas.includes(pagina)) {
+                        mostrarMensajeAccesoDenegado(pagina);
+                        return;
+                    }
+                    _orig(pagina);
+                };
+            }
+        }, 200);
+    });
+    </script>
+
 </body>
 </html>
 

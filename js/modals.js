@@ -548,34 +548,39 @@ const ModalManager = {
                 form.addEventListener('submit', (e) => {
                     e.preventDefault();
                 });
+
+
+    // Intentar con proxy CORS
+    fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent("https://zenquotes.io/api/random"))
+        .then(res => {
+            if (!res.ok) throw new Error('API no disponible');
+            return res.json();
+        })
+        .then(data => {
+            if (data && data[0]) {
+                fraseEl.textContent = '"' + data[0].q + '"';
+                if (autorEl) autorEl.textContent = '— ' + data[0].a;
+            } else {
+                throw new Error('Sin datos');
             }
+        })
+        .catch(() => {
+            // Usar frase local aleatoria como respaldo
+            const random = frasesFallback[Math.floor(Math.random() * frasesFallback.length)];
+            fraseEl.textContent = '"' + random.q + '"';
+            if (autorEl) autorEl.textContent = '— ' + random.a;
         });
-    }
-};// modals.js (al final)
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ModalManager };
-} else {
-    window.ModalManager = ModalManager;
 }
-// Aqui se conecta a la pagina usando "Fetch" para poner el link, esto recibe las frases en formato JSON
-fetch("https://zenquotes.io/api/random")
-  .then(response => response.json())
-  .then(data => {
-    document.getElementById("frase").textContent = data[0].q;
-    document.getElementById("autor").textContent = "- " + data[0].a;
-  });
-  
-  function cargarFrase() {
-  fetch("https://api.quotable.io/random")
-    .then(res => res.json())
-    .then(data => {
-      document.getElementById("frase").textContent = '"' + data.content + '"';
-      document.getElementById("autor").textContent = "- " + data.author;
+
+// Cargar al iniciar y conectar botón
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        cargarFrase();
+        const btn = document.getElementById('btnFrase');
+        if (btn) btn.addEventListener('click', cargarFrase);
     });
+} else {
+    cargarFrase();
+    const btn = document.getElementById('btnFrase');
+    if (btn) btn.addEventListener('click', cargarFrase);
 }
-
-// cargar una frase cuando abre la página
-cargarFrase();
-
-// cuando se presione el botón
-document.getElementById("btnFrase").addEventListener("click", cargarFrase);
