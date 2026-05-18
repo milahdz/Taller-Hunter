@@ -35,22 +35,14 @@ function setupConfirmModal() {
         ?.addEventListener('click', () => Confirmacion._responder(false));
 }
 
-// Buttons that should NOT trigger confirmation (non-destructive actions)
+// Solo los botones de ELIMINAR requieren confirmación
 function shouldSkipConfirm(btn) {
     if (btn.closest('#confirmModal')) return true;
-    if (btn.classList.contains('close-modal')) return true;
-    if (btn.classList.contains('view-btn') || btn.getAttribute('data-view')) return true;
-    if (btn.classList.contains('notification-close')) return true;
-    // Edit buttons just open modals — not destructive
-    if (btn.classList.contains('btn-edit') || btn.classList.contains('svc-btn-edit')) return true;
-    const skipIds = [
-        'cancelBtn','cancelVehiculoBtn','cancelClienteBtn','cancelServicioBtn','cancelEmpleadoBtn',
-        'addVehicleBtn','addVehiculoBtn','addClienteBtn','addServicioBtn','addEmpleadoBtn',
-        'printBtn','confirmCancelBtn','confirmOkBtn',
-        'savePerfilBtn','savePasswordBtn','saveTallerBtn','saveConfigBtn','saveHorariosBtn',
-        'themeToggle'
-    ];
-    return skipIds.includes(btn.id);
+    // Solo pedir confirmación para botones de eliminar
+    const isDelete = btn.classList.contains('btn-delete') ||
+                     btn.classList.contains('svc-btn-delete') ||
+                     btn.classList.contains('card-btn-delete');
+    return !isDelete;
 }
 
 // Global interceptor: consequential button clicks go through confirmation first
@@ -141,47 +133,57 @@ async function cargarDatosReales() {
             const tObj = tiposServicio.find(t => t.id === s.tipo_servicio_id);
             const eObj = empleados.find(e => String(e.id) === String(s.empleado_id));
             return {
-                id:       s.id,
-                vehicle:  s.placa         || (vObj ? vObj.placa   : s.vehiculo_id  || 'N/A'),
-                owner:    s.propietario   || (cObj ? cObj.nombre  : 'N/A'),
-                date:     s.fecha         || new Date().toISOString().split('T')[0],
-                service:  s.tipo_servicio || (tObj ? tObj.nombre  : 'N/A'),
-                phone:    s.telefono      || (cObj ? cObj.telefono : 'No disponible'),
-                time:     s.hora          || '08:00',
-                employee: s.empleado      || (eObj ? eObj.nombre  : 'Sin asignar'),
-                status:   normalizeStatus(s.estado),
-                notes:    s.notas || ''
+                id:                 s.id,
+                codigo_seguimiento: s.codigo_seguimiento || s.id,  // fallback para registros anteriores
+                cliente_id:         s.cliente_id  || '',
+                vehiculo_id:        s.vehiculo_id || '',
+                vehicle:    s.placa         || (vObj ? vObj.placa   : s.vehiculo_id  || 'N/A'),
+                owner:      s.propietario   || (cObj ? cObj.nombre  : 'N/A'),
+                date:       s.fecha         || new Date().toISOString().split('T')[0],
+                service:    s.tipo_servicio || (tObj ? tObj.nombre  : 'N/A'),
+                phone:      s.telefono      || (cObj ? cObj.telefono : 'No disponible'),
+                time:       s.hora          || '08:00',
+                employee:   s.empleado      || (eObj ? eObj.nombre  : 'Sin asignar'),
+                status:     normalizeStatus(s.estado),
+                notes:      s.notas || ''
             };
         });
 
+        // clientes: id, nombre, email, telefono, vehiculos, total_servicios, desde, estado
         DataStore.clientes = clientes.map(c => ({
-            id: c.id,
-            nombre: c.nombre || '',
-            telefono: c.telefono || '',
-            email: c.email || '',
-            direccion: c.direccion || '',
-            notas: c.notas || ''
+            id:             c.id,
+            nombre:         c.nombre         || '',
+            telefono:       c.telefono        || '',
+            email:          c.email           || '',
+            desde:          c.desde           || '',
+            estado:         c.estado          || '',
+            total_servicios: c.total_servicios || 0,
+            vehiculosCount:  c.vehiculos      || 0
         }));
 
+        // vehiculos: id, placa, modelo, marca, anio, color, cliente, ultimo_servicio, estado, cliente_id
         DataStore.vehiculos = vehiculos.map(v => ({
-            id: v.id,
-            placa: v.placa || '',
-            marca: v.marca || '',
-            modelo: v.modelo || '',
-            año: v.año || '',
-            color: v.color || '',
+            id:        v.id,
+            placa:     v.placa    || '',
+            marca:     v.marca    || '',
+            modelo:    v.modelo   || '',
+            anio:      v.anio     || '',
+            color:     v.color    || '',
             clienteId: v.cliente_id || '',
-            kilometraje: v.kilometraje || '',
-            notas: v.notas || ''
+            cliente:   v.cliente  || '',
+            estado:    v.estado   || 'Activo'
         }));
 
+        // tipos_servicio: id, codigo, nombre, categoria, duracion, precio_base, descripcion, estado
         DataStore.tiposServicio = tiposServicio.map(t => ({
-            id: t.id,
-            nombre: t.nombre || t.descripcion || 'Sin nombre',
+            id:          t.id,
+            codigo:      t.codigo      || t.id,
+            nombre:      t.nombre      || '',
             descripcion: t.descripcion || '',
-            precio: t.precio ?? t.precio_base ?? 0,
-            duracion: t.duracion || '',
-            categoria: t.categoria || ''
+            precio:      t.precio_base ?? 0,
+            duracion:    t.duracion    || '',
+            categoria:   t.categoria   || '',
+            estado:      t.estado      || 'Activo'
         }));
 
         DataStore.empleados = empleados.map(e => ({
@@ -251,6 +253,35 @@ function setupEventListeners() {
 
     const addServicioBtn = document.getElementById('addServicioBtn');
     if (addServicioBtn) addServicioBtn.addEventListener('click', () => ModalManager.openServicioModal());
+
+    // Search bars
+    document.getElementById('searchAgenda')?.addEventListener('input', e => {
+        AppState.searchAgenda = e.target.value;
+        if (AppState.currentPage === 'agenda') renderListaServicios();
+    });
+    document.getElementById('searchVehiculos')?.addEventListener('input', e => {
+        AppState.searchVehiculos = e.target.value;
+        if (AppState.currentPage === 'vehiculos') renderVehiculos();
+    });
+    document.getElementById('searchClientes')?.addEventListener('input', e => {
+        AppState.searchClientes = e.target.value;
+        if (AppState.currentPage === 'clientes') renderClientes();
+    });
+    document.getElementById('searchServicios')?.addEventListener('input', e => {
+        AppState.searchServicios = e.target.value;
+        if (AppState.currentPage === 'servicios') renderServicios();
+    });
+
+    // Logout
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('th_admin_name');
+            localStorage.removeItem('th_theme');
+            localStorage.removeItem('th_session');
+            window.location.href = '../login/index.html';
+        });
+    }
 
     // Tabs de reportes
     document.querySelectorAll('[data-report]').forEach(btn => {
@@ -344,29 +375,42 @@ async function guardarVehiculo() {
     const form = document.getElementById('vehiculoForm');
     if (!form.checkValidity()) { form.reportValidity(); return; }
 
+    // Esquema real: placa, marca, modelo, anio, color, cliente_id  (no existe kilometraje ni notas)
     const data = {
-        placa:       document.getElementById('vehiculoPlaca').value,
-        marca:       document.getElementById('vehiculoMarca').value,
-        modelo:      document.getElementById('vehiculoModelo').value,
-        año:         document.getElementById('vehiculoAnio').value || '',
-        color:       document.getElementById('vehiculoColor').value || '',
-        clienteId:   document.getElementById('vehiculoCliente').value,
-        kilometraje: document.getElementById('vehiculoKilometraje').value || '',
-        notas:       document.getElementById('vehiculoNotas').value || ''
+        placa:     document.getElementById('vehiculoPlaca').value,
+        marca:     document.getElementById('vehiculoMarca').value,
+        modelo:    document.getElementById('vehiculoModelo').value,
+        anio:      document.getElementById('vehiculoAnio').value  || null,
+        color:     document.getElementById('vehiculoColor').value || null,
+        clienteId: document.getElementById('vehiculoCliente').value
     };
 
     const btn = document.getElementById('saveVehiculoBtn');
     btn.disabled = true;
     try {
+        let result;
         if (AppState.editingVehiculoId) {
-            await VehiculoManager.updateVehiculo(AppState.editingVehiculoId, data);
+            result = await VehiculoManager.updateVehiculo(AppState.editingVehiculoId, data);
             UIManager.showNotification('Vehículo actualizado correctamente', 'success');
         } else {
-            await VehiculoManager.createVehiculo(data);
+            result = await VehiculoManager.createVehiculo(data);
             UIManager.showNotification('Vehículo creado correctamente', 'success');
         }
         cerrarModal('vehiculoModal');
-        renderVehiculos();
+        // Si el modal de agenda está abierto, refrescar vehículos y pre-seleccionar
+        const scheduleModal = document.getElementById('scheduleModal');
+        if (scheduleModal && scheduleModal.style.display === 'flex') {
+            const clienteId = document.getElementById('cliente')?.value;
+            AgendaManager.poblarVehiculos(clienteId);
+            if (result && result.id) {
+                setTimeout(() => {
+                    const sel = document.getElementById('vehiculo');
+                    if (sel) sel.value = result.id;
+                }, 50);
+            }
+        } else if (AppState.currentPage === 'vehiculos') {
+            renderVehiculos();
+        }
     } catch (e) { /* manejado en el manager */ }
     finally { btn.disabled = false; }
 }
@@ -375,26 +419,38 @@ async function guardarCliente() {
     const form = document.getElementById('clienteForm');
     if (!form.checkValidity()) { form.reportValidity(); return; }
 
+    // Esquema real: nombre, email, telefono  (no existe direccion ni notas)
     const data = {
-        nombre:    document.getElementById('clienteNombre').value,
-        telefono:  document.getElementById('clienteTelefono').value,
-        email:     document.getElementById('clienteEmail').value || '',
-        direccion: document.getElementById('clienteDireccion').value || '',
-        notas:     document.getElementById('clienteNotas').value || ''
+        nombre:   document.getElementById('clienteNombre').value,
+        telefono: document.getElementById('clienteTelefono').value,
+        email:    document.getElementById('clienteEmail').value || ''
     };
 
     const btn = document.getElementById('saveClienteBtn');
     btn.disabled = true;
     try {
+        let result;
         if (AppState.editingClienteId) {
-            await ClienteManager.updateCliente(AppState.editingClienteId, data);
+            result = await ClienteManager.updateCliente(AppState.editingClienteId, data);
             UIManager.showNotification('Cliente actualizado correctamente', 'success');
         } else {
-            await ClienteManager.createCliente(data);
+            result = await ClienteManager.createCliente(data);
             UIManager.showNotification('Cliente creado correctamente', 'success');
         }
         cerrarModal('clienteModal');
-        renderClientes();
+        // Si el modal de agenda está abierto, refrescar selects y pre-seleccionar cliente
+        const scheduleModal = document.getElementById('scheduleModal');
+        if (scheduleModal && scheduleModal.style.display === 'flex') {
+            AgendaManager.poblarSelects();
+            if (result && result.id) {
+                setTimeout(() => {
+                    const sel = document.getElementById('cliente');
+                    if (sel) { sel.value = result.id; sel.dispatchEvent(new Event('change')); }
+                }, 50);
+            }
+        } else if (AppState.currentPage === 'clientes') {
+            renderClientes();
+        }
     } catch (e) { /* manejado en el manager */ }
     finally { btn.disabled = false; }
 }
@@ -403,10 +459,12 @@ async function guardarServicio() {
     const form = document.getElementById('servicioForm');
     if (!form.checkValidity()) { form.reportValidity(); return; }
 
+    // Esquema real: nombre, descripcion, precio_base, duracion, categoria
     const data = {
         nombre:      document.getElementById('servicioNombre').value,
         descripcion: document.getElementById('servicioDescripcion').value || '',
-        precio:      parseFloat(document.getElementById('servicioPrecio').value),
+        precio:      parseFloat(document.getElementById('servicioPrecio').value) || 0,
+        precio_base: parseFloat(document.getElementById('servicioPrecio').value) || 0,
         duracion:    document.getElementById('servicioDuracion').value || '',
         categoria:   document.getElementById('servicioCategoria').value || ''
     };
@@ -489,7 +547,12 @@ function cargarPagina(pagina) {
 // ===== RENDER DE SECCIONES =====
 
 function renderVehiculos() {
-    const buttons = UIManager.renderVehiculos(DataStore.vehiculos, document.getElementById('vehiculosList'));
+    const q = (AppState.searchVehiculos || '').toLowerCase().trim();
+    const data = q
+        ? DataStore.vehiculos.filter(v =>
+            `${v.placa} ${v.marca} ${v.modelo} ${v.cliente}`.toLowerCase().includes(q))
+        : DataStore.vehiculos;
+    const buttons = UIManager.renderVehiculos(data, document.getElementById('vehiculosList'));
     if (!buttons) return;
     buttons.editBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -509,7 +572,12 @@ function renderVehiculos() {
 }
 
 function renderClientes() {
-    const buttons = UIManager.renderClientes(DataStore.clientes, document.getElementById('clientesList'));
+    const q = (AppState.searchClientes || '').toLowerCase().trim();
+    const data = q
+        ? DataStore.clientes.filter(c =>
+            `${c.nombre} ${c.telefono} ${c.email}`.toLowerCase().includes(q))
+        : DataStore.clientes;
+    const buttons = UIManager.renderClientes(data, document.getElementById('clientesList'));
     if (!buttons) return;
     buttons.editBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -533,7 +601,12 @@ function renderClientes() {
 }
 
 function renderServicios() {
-    const buttons = UIManager.renderServicios(DataStore.tiposServicio, document.getElementById('serviciosList'));
+    const q = (AppState.searchServicios || '').toLowerCase().trim();
+    const data = q
+        ? DataStore.tiposServicio.filter(s =>
+            `${s.nombre} ${s.categoria} ${s.descripcion}`.toLowerCase().includes(q))
+        : DataStore.tiposServicio;
+    const buttons = UIManager.renderServicios(data, document.getElementById('serviciosList'));
     if (!buttons) return;
     buttons.editBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -658,6 +731,11 @@ function renderListaServicios() {
     if (AppState.currentTab !== 'all') {
         servicios = servicios.filter(s => s.status === AppState.currentTab);
     }
+    const q = (AppState.searchAgenda || '').toLowerCase().trim();
+    if (q) {
+        servicios = servicios.filter(s =>
+            `${s.codigo_seguimiento || s.id} ${s.vehicle} ${s.owner} ${s.service} ${s.employee}`.toLowerCase().includes(q));
+    }
 
     if (servicios.length === 0) {
         container.innerHTML = `
@@ -681,8 +759,8 @@ function renderListaServicios() {
             <table class="services-table">
                 <thead>
                     <tr>
-                        <th>Vehículo</th><th>Propietario</th><th>Fecha</th><th>Hora</th>
-                        <th>Servicio</th><th>Empleado</th><th>Teléfono</th><th>Estado</th>
+                        <th>Código</th><th>Vehículo</th><th>Propietario</th><th>Fecha</th>
+                        <th>Servicio</th><th>Empleado</th><th>Estado</th>
                         <th style="text-align:center;">Acciones</th>
                     </tr>
                 </thead>
@@ -690,20 +768,21 @@ function renderListaServicios() {
 
     servicios.forEach(s => {
         const st = statusMap[s.status] || statusMap.pending;
-        const hora = s.time ? s.time.substring(0,5) : '--:--';
+        const hora   = s.time ? s.time.substring(0,5) : '--:--';
+        const codigo = s.codigo_seguimiento || s.id || '—';
         html += `
             <tr>
-                <td><strong>${s.vehicle}</strong></td>
-                <td>${s.owner}</td>
+                <td><span class="tracking-badge" title="Código de seguimiento">${codigo}</span></td>
+                <td><strong>${s.vehicle}</strong><br><small style="color:var(--gray-500)">${hora}</small></td>
+                <td>${s.owner}<br><small style="color:var(--gray-500)">${s.phone}</small></td>
                 <td>${DataUtils.formatDate(s.date)}</td>
-                <td>${hora}</td>
                 <td>${s.service}</td>
                 <td>${s.employee || 'Sin asignar'}</td>
-                <td>${s.phone}</td>
                 <td><span class="service-status ${st.cls}"><i class="${st.icon}"></i>${st.txt}</span></td>
                 <td>
                     <div class="action-buttons" style="justify-content:center;">
-                        ${s.status !== 'completed' ? `<button class="action-btn-icon btn-complete" data-id="${s.id}" title="Completar"><i class="fas fa-check"></i></button>` : ''}
+                        ${s.status !== 'completed' ? `<button class="action-btn-icon btn-complete" data-id="${s.id}" title="Marcar Completado"><i class="fas fa-check"></i></button>` : ''}
+                        <button class="action-btn-icon btn-print" data-id="${s.id}" title="Imprimir Factura" style="color:#7c3aed;"><i class="fas fa-print"></i></button>
                         <button class="action-btn-icon btn-delete" data-id="${s.id}" title="Eliminar"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
@@ -732,6 +811,12 @@ function renderListaServicios() {
             renderListaServicios();
             actualizarEstadisticas();
             UIManager.showNotification('Registro eliminado', 'success');
+        });
+    });
+    container.querySelectorAll('.btn-print').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            printServiceInvoice(id);
         });
     });
 }
@@ -786,4 +871,104 @@ function actualizarEstadisticas() {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
     });
+}
+
+// ===== PRINT INVOICE =====
+
+function printServiceInvoice(serviceId) {
+    const s = DataUtils.findServiceById(serviceId);
+    if (!s) { UIManager.showNotification('Servicio no encontrado', 'error'); return; }
+
+    const cfg = DataStore.configuracion || {};
+    const tallerData = (() => { try { return JSON.parse(localStorage.getItem('th_taller') || '{}'); } catch(e) { return {}; } })();
+    const tallerNombre = tallerData.nombre || 'Taller Hunter';
+    const tallerTel    = tallerData.telefono || '+1 (809) 555-1234';
+    const tallerDir    = tallerData.direccion || 'Av. Principal #123, Santo Domingo';
+    const tallerEmail  = tallerData.email || 'info@tallerhunter.com';
+
+    const statusLabel  = { pending: 'Pendiente', process: 'En Proceso', completed: 'Completado', cancelled: 'Cancelado' };
+    const statusColors = { pending: '#d97706', process: '#2563eb', completed: '#16a34a', cancelled: '#dc2626' };
+    const st            = s.status || 'pending';
+    const codigoVisible = s.codigo_seguimiento || s.id || 'N/A';
+
+    const html = `<!DOCTYPE html><html lang="es"><head>
+<meta charset="UTF-8">
+<title>Factura ${codigoVisible}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a2e; padding: 24px; }
+  .invoice { max-width: 680px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 3px solid #1d4ed8; }
+  .logo h1 { font-size: 22px; color: #1d4ed8; }
+  .logo p { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .invoice-meta { text-align: right; }
+  .invoice-meta h2 { font-size: 18px; color: #1d4ed8; text-transform: uppercase; letter-spacing: 1px; }
+  .tracking { display: inline-block; background: #dbeafe; color: #1d4ed8; border: 1.5px solid #93c3fd; font-family: monospace; font-size: 15px; font-weight: bold; padding: 6px 14px; border-radius: 6px; margin-top: 6px; }
+  .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; color: #fff; font-weight: bold; font-size: 11px; background: ${statusColors[st] || '#64748b'}; }
+  .section { margin-bottom: 24px; }
+  .section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 12px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
+  .field span { font-weight: 600; font-size: 13px; }
+  .total-box { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; text-align: right; }
+  .total-box .label { color: #64748b; font-size: 12px; }
+  .total-box .value { font-size: 20px; font-weight: bold; color: #1d4ed8; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8; }
+  @media print { @page { margin: 1cm; } }
+</style>
+</head><body>
+<div class="invoice">
+  <div class="header">
+    <div class="logo">
+      <h1>🔧 ${tallerNombre}</h1>
+      <p>${tallerDir}</p>
+      <p>${tallerTel} &bull; ${tallerEmail}</p>
+    </div>
+    <div class="invoice-meta">
+      <h2>Factura de Servicio</h2>
+      <div class="tracking">${codigoVisible}</div><br>
+      <small style="color:#64748b;">${DataUtils.formatDate(s.date)} &bull; ${s.time ? s.time.substring(0,5) : '--:--'}</small><br>
+      <div class="status-pill" style="margin-top:6px;">${statusLabel[st] || st}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Información del Cliente</h3>
+    <div class="grid-2">
+      <div class="field"><label>Propietario</label><span>${s.owner || '—'}</span></div>
+      <div class="field"><label>Teléfono</label><span>${s.phone || '—'}</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Información del Vehículo</h3>
+    <div class="grid-2">
+      <div class="field"><label>Placa</label><span>${s.vehicle || '—'}</span></div>
+      <div class="field"><label>Servicio Realizado</label><span>${s.service || '—'}</span></div>
+      <div class="field"><label>Técnico Asignado</label><span>${s.employee || 'Sin asignar'}</span></div>
+      <div class="field"><label>Fecha de Ingreso</label><span>${DataUtils.formatDate(s.date)}</span></div>
+    </div>
+    ${s.notes ? `<div style="margin-top:12px;"><label style="font-size:10px;color:#94a3b8;text-transform:uppercase;">Observaciones</label><p style="margin-top:4px;background:#f8fafc;padding:10px;border-radius:6px;font-size:12px;">${s.notes}</p></div>` : ''}
+  </div>
+
+  <div class="total-box">
+    <div class="label">Código de Seguimiento</div>
+    <div class="value" style="font-family:monospace;font-size:16px;">${codigoVisible}</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Presenta este código para consultar el estado de tu vehículo</div>
+  </div>
+
+  <div class="footer">
+    <p>Gracias por confiar en ${tallerNombre} &bull; ${tallerTel}</p>
+    <p style="margin-top:4px;">${tallerDir}</p>
+    <p style="margin-top:4px;">Factura generada el ${new Date().toLocaleDateString('es-DO', {day:'2-digit',month:'long',year:'numeric'})}</p>
+  </div>
+</div>
+<script>window.onload = () => window.print();<\/script>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=750,height=900');
+    if (win) {
+        win.document.write(html);
+        win.document.close();
+    }
 }

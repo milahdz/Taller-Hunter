@@ -195,7 +195,41 @@ body {
   font-size: 0.875rem;
 }
 
-/* Footer */
+/* Sidebar footer */
+.sidebar-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(255,255,255,.07);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sidebar-copy {
+  font-size: 0.65rem;
+  color: var(--slate-600);
+  text-align: center;
+  margin: 0;
+  line-height: 1.4;
+}
+.btn-logout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(239,68,68,.12);
+  border: 1px solid rgba(239,68,68,.25);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .2s, color .2s;
+}
+.btn-logout:hover {
+  background: rgba(239,68,68,.25);
+  color: #fecaca;
+}
+/* Legacy .footer kept for any other use */
 .footer {
   padding: 1rem 1.25rem;
   border-top: 1px solid rgba(255,255,255,.07);
@@ -1151,6 +1185,67 @@ textarea.form-control      { resize: vertical; min-height: 88px; }
 [data-theme="dark"] .svc-btn-delete:hover { background: #7f1d1d; color: #fecaca; }
 
 [data-theme="dark"] .calendar-day { background: #1e293b; }
+
+/* ============================================================
+   TRACKING BADGE - Código único de seguimiento
+   ============================================================ */
+.tracking-badge {
+    display: inline-block;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    background: #dbeafe;
+    border: 1px solid #93c3fd;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+[data-theme="dark"] .tracking-badge {
+    background: #1e3a5f;
+    color: #93c5fd;
+    border-color: #1e40af;
+}
+
+/* ============================================================
+   SEARCH BAR
+   ============================================================ */
+.search-bar-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-card, #fff);
+    border: 1.5px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+}
+.search-bar-wrapper:focus-within {
+    border-color: var(--primary, #2563eb);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+}
+.search-bar-wrapper i {
+    color: var(--text-muted, #9ca3af);
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+.search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.875rem;
+    color: var(--text-primary, #1f2937);
+    min-width: 0;
+}
+.search-input::placeholder { color: var(--text-muted, #9ca3af); }
+[data-theme="dark"] .search-bar-wrapper {
+    background: var(--bg-card-dark, #1e293b);
+    border-color: var(--border-dark, #334155);
+}
+[data-theme="dark"] .search-input { color: #f1f5f9; }
 
 /* ============================================================
    RESPONSIVE: report chart grid stacks on narrow screens

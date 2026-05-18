@@ -53,12 +53,35 @@ const AgendaManager = {
             selectCliente.addEventListener('change', () => {
                 const clienteId = selectCliente.value;
                 AgendaManager.poblarVehiculos(clienteId);
-
-                // Auto-rellenar teléfono
                 const cliente = (DataStore.clientes || []).find(c => String(c.id) === String(clienteId));
                 const telefonoInput = document.getElementById('telefono');
                 if (telefonoInput) {
                     telefonoInput.value = cliente ? (cliente.telefono || '') : '';
+                }
+            });
+        }
+
+        // Botones quick-add: abren el modal de cliente/vehículo y vuelven al de agenda
+        const quickAddClienteBtn = document.getElementById('quickAddClienteBtn');
+        if (quickAddClienteBtn) {
+            quickAddClienteBtn.addEventListener('click', () => {
+                if (typeof ModalManager !== 'undefined') ModalManager.openClienteModal();
+            });
+        }
+
+        const quickAddVehiculoBtn = document.getElementById('quickAddVehiculoBtn');
+        if (quickAddVehiculoBtn) {
+            quickAddVehiculoBtn.addEventListener('click', () => {
+                const clienteId = document.getElementById('cliente')?.value;
+                if (typeof ModalManager !== 'undefined') {
+                    ModalManager.openVehiculoModal();
+                    // Pre-seleccionar el cliente si ya está elegido
+                    if (clienteId) {
+                        setTimeout(() => {
+                            const sel = document.getElementById('vehiculoCliente');
+                            if (sel) sel.value = clienteId;
+                        }, 50);
+                    }
                 }
             });
         }
@@ -206,39 +229,48 @@ const AgendaManager = {
         const servicioId  = document.getElementById('servicio').value;
         const empleadoId  = document.getElementById('empleado').value;
 
-        // Look up text values from DataStore to fill legacy text columns
+        // Buscar objetos en DataStore para obtener campos de texto
         const vehiculo   = (DataStore.vehiculos     || []).find(v => String(v.id) === String(vehiculoId));
         const cliente    = (DataStore.clientes      || []).find(c => String(c.id) === String(clienteId));
         const tipoServ   = (DataStore.tiposServicio || []).find(t => String(t.id) === String(servicioId));
         const empleado   = (DataStore.empleados     || []).find(e => String(e.id) === String(empleadoId));
 
-        // vehiculo_id is INTEGER in the DB (unquoted in sample INSERT)
-        const vehiculoIdInt = Number(vehiculoId);
+        // vehiculo_id is INTEGER FK — ensure we send int or null
+        const vehiculoIdFinal = (vehiculoId && !isNaN(Number(vehiculoId)))
+            ? Number(vehiculoId)
+            : null;
 
-        // hora must be HH:MM:SS for the TIME column
+        // hora debe ser HH:MM:SS para columna TIME
         const horaRaw = document.getElementById('hora').value || '08:00';
         const hora = horaRaw.split(':').length === 2 ? horaRaw + ':00' : horaRaw;
 
-        const datos = {
-            id:               String(Date.now()),      // TEXT column, no auto-default
-            vehiculo_id:      vehiculoIdInt,           // INTEGER
-            cliente_id:       clienteId,               // UUID text
-            tipo_servicio_id: servicioId,              // UUID text
-            empleado_id:      String(empleadoId),      // TEXT (quoted '1' in sample)
-            // legacy text columns
-            placa:            vehiculo ? vehiculo.placa                              : null,
-            modelo:           vehiculo ? `${vehiculo.marca || ''} ${vehiculo.modelo || ''}`.trim() : null,
-            propietario:      cliente  ? cliente.nombre                              : null,
-            tipo_servicio:    tipoServ ? tipoServ.nombre                             : null,
-            empleado:         empleado ? empleado.nombre                             : null,
-            fecha:            document.getElementById('fecha').value,
-            hora:             hora,
-            telefono:         document.getElementById('telefono').value.trim() || null,
-            notas:            document.getElementById('notas').value.trim()    || null,
-            estado:           'Pendiente'
+        const codigoSeguimiento = DataUtils.generateTrackingCode();
+
+        // Payload completo (esquema nuevo — requiere columna codigo_seguimiento en DB)
+        const datosNuevo = {
+            id:                 DataUtils.generateUUID(),
+            codigo_seguimiento: codigoSeguimiento,
+            vehiculo_id:        vehiculoIdFinal,
+            cliente_id:         clienteId  || null,
+            tipo_servicio_id:   servicioId || null,
+            empleado_id:        empleadoId ? String(empleadoId) : null,
+            placa:              vehiculo ? vehiculo.placa                                    : null,
+            modelo:             vehiculo ? `${vehiculo.marca || ''} ${vehiculo.modelo || ''}`.trim() : null,
+            propietario:        cliente  ? cliente.nombre                                    : null,
+            tipo_servicio:      tipoServ ? tipoServ.nombre                                   : null,
+            empleado:           empleado ? empleado.nombre                                   : null,
+            fecha:              document.getElementById('fecha').value,
+            hora,
+            telefono:           document.getElementById('telefono').value.trim() || null,
+            notas:              document.getElementById('notas').value.trim()    || null,
+            estado:             'Pendiente'
         };
 
-        console.log('📤 Guardando agendamiento:', datos);
+        // Payload de fallback (esquema antiguo — id = código de seguimiento)
+        const datosLegacy = (({ id: _id, codigo_seguimiento: _cs, ...rest }) =>
+            ({ ...rest, id: codigoSeguimiento }))(datosNuevo);
+
+        console.log('📤 Guardando agendamiento:', datosNuevo);
 
         const saveBtn = document.getElementById('saveScheduleBtn');
         const originalHTML = saveBtn ? saveBtn.innerHTML : '';
@@ -250,25 +282,32 @@ const AgendaManager = {
         try {
             if (!window.supabase) throw new Error('Supabase no está disponible. Recarga la página.');
 
-            const { data, error } = await supabase
+            // Intenta con esquema nuevo primero
+            let { data, error } = await supabase
                 .from('registro_servicio_vehiculo')
-                .insert([datos])
+                .insert([datosNuevo])
                 .select()
                 .single();
+
+            // PGRST204 = columna no existe aún → usar esquema legacy hasta que se corra la migración SQL
+            if (error?.code === 'PGRST204') {
+                console.warn('⚠️ Columna codigo_seguimiento no encontrada — usando esquema legacy. Corre la migración SQL en Supabase.');
+                const retry = await supabase
+                    .from('registro_servicio_vehiculo')
+                    .insert([datosLegacy])
+                    .select()
+                    .single();
+                error = retry.error;
+                data  = retry.data;
+            }
 
             if (error) throw error;
 
             console.log('✅ Agendamiento guardado:', data);
-            AgendaManager.mostrarMensaje('¡Vehículo agendado exitosamente!', 'success');
-            AgendaManager.cerrarModal();
 
-            // Recargar y re-renderizar agenda
-            if (typeof cargarDatosReales === 'function') {
-                cargarDatosReales().then(() => {
-                    if (typeof renderAgenda === 'function') renderAgenda();
-                    if (typeof actualizarEstadisticas === 'function') actualizarEstadisticas();
-                });
-            }
+            // Show modal with prominent tracking code (reload happens on close)
+            AgendaManager.cerrarModal();
+            AgendaManager.mostrarCodigoSeguimiento(codigoSeguimiento);
 
         } catch (err) {
             console.error('❌ Error al guardar:', err);
@@ -293,7 +332,6 @@ const AgendaManager = {
             alert(mensaje);
             return;
         }
-
         const toast = document.createElement('div');
         toast.style.cssText = `
             position:fixed; top:20px; right:20px;
@@ -305,8 +343,66 @@ const AgendaManager = {
         `;
         toast.innerHTML = `<i class="fas fa-check-circle"></i><span>${mensaje}</span>`;
         document.body.appendChild(toast);
-
         setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+    },
+
+    mostrarCodigoSeguimiento: function(codigo) {
+        // Remove any existing modal
+        document.getElementById('trackingCodeModal')?.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'trackingCodeModal';
+        overlay.style.cssText = `
+            position:fixed; inset:0; background:rgba(0,0,0,0.6);
+            z-index:99999; display:flex; align-items:center; justify-content:center;
+        `;
+        overlay.innerHTML = `
+            <div style="background:#fff; border-radius:16px; padding:32px 40px; max-width:440px; width:90%;
+                        box-shadow:0 24px 64px rgba(0,0,0,0.25); text-align:center;">
+                <div style="width:56px; height:56px; background:#d1fae5; border-radius:50%;
+                            display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                    <i class="fas fa-check-circle" style="color:#10b981; font-size:24px;"></i>
+                </div>
+                <h3 style="margin:0 0 8px; font-size:20px; color:#111827;">¡Vehículo agendado!</h3>
+                <p style="color:#6b7280; margin:0 0 20px; font-size:14px;">
+                    Guarda este código — el cliente lo necesita para consultar el estado de su vehículo.
+                </p>
+                <div style="background:#eff6ff; border:2px dashed #3b82f6; border-radius:10px; padding:16px; margin-bottom:20px;">
+                    <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">
+                        Código de seguimiento
+                    </div>
+                    <div id="trackingCodeValue" style="font-family:monospace; font-size:22px; font-weight:bold;
+                                color:#1d4ed8; letter-spacing:2px; cursor:pointer;" title="Clic para copiar">
+                        ${codigo}
+                    </div>
+                    <div style="font-size:11px; color:#93c5fd; margin-top:4px;">Clic para copiar</div>
+                </div>
+                <button id="trackingCodeClose" style="background:#2563eb; color:#fff; border:none; border-radius:8px;
+                    padding:10px 32px; font-size:15px; font-weight:600; cursor:pointer; width:100%;">
+                    Entendido
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Copy to clipboard on click
+        document.getElementById('trackingCodeValue').addEventListener('click', () => {
+            navigator.clipboard?.writeText(codigo).then(() => {
+                const el = document.getElementById('trackingCodeValue');
+                if (el) { el.style.color = '#16a34a'; setTimeout(() => { el.style.color = '#1d4ed8'; }, 1200); }
+            });
+        });
+
+        document.getElementById('trackingCodeClose').addEventListener('click', () => {
+            overlay.remove();
+            if (typeof cargarDatosReales === 'function') {
+                cargarDatosReales().then(() => {
+                    if (typeof renderAgenda === 'function') renderAgenda();
+                    if (typeof actualizarEstadisticas === 'function') actualizarEstadisticas();
+                });
+            }
+        });
     }
 };
 

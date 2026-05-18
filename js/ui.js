@@ -41,17 +41,20 @@ const UIManager = {
         const tableBody = document.getElementById('vehiculosTableBody');
         
         vehiculos.forEach(vehiculo => {
-            const cliente = DataUtils.findClienteById(vehiculo.clienteId) || {};
-            
+            // Buscar cliente por ID o usar campo texto 'cliente'
+            const clienteObj = DataStore.clientes.find(c => String(c.id) === String(vehiculo.clienteId));
+            const nombreCliente  = clienteObj?.nombre  || vehiculo.cliente  || 'Sin propietario';
+            const telefonoCliente = clienteObj?.telefono || '—';
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${vehiculo.placa}</strong></td>
                 <td>${vehiculo.marca}</td>
                 <td>${vehiculo.modelo}</td>
-                <td>${vehiculo.año}</td>
-                <td>${vehiculo.color}</td>
-                <td>${cliente.nombre || 'Sin propietario'}</td>
-                <td>${cliente.telefono || 'No disponible'}</td>
+                <td>${vehiculo.anio || '—'}</td>
+                <td>${vehiculo.color || '—'}</td>
+                <td>${nombreCliente}</td>
+                <td>${telefonoCliente}</td>
                 <td>
                     <div class="action-buttons" style="margin: 0; justify-content: center;">
                         <button class="action-btn-icon btn-edit" data-id="${vehiculo.id}" data-type="vehiculo" title="Editar">
@@ -124,7 +127,6 @@ const UIManager = {
                         <th>Nombre</th>
                         <th>Teléfono</th>
                         <th>Email</th>
-                        <th>Dirección</th>
                         <th>Vehículos</th>
                         <th>Último Servicio</th>
                         <th>Acciones</th>
@@ -139,12 +141,12 @@ const UIManager = {
         const tableBody = document.getElementById('clientesTableBody');
         
         clientes.forEach(cliente => {
-            // Contar vehículos del cliente
-            const vehiculosCliente = DataStore.vehiculos.filter(v => v.clienteId === cliente.id);
-            
-            // Obtener último servicio
-            const serviciosCliente = DataStore.services.filter(s => s.owner === cliente.nombre);
-            const ultimoServicio = serviciosCliente.length > 0 
+            const vehiculosCliente = DataStore.vehiculos.filter(v => String(v.clienteId) === String(cliente.id));
+            // Buscar servicios por ID o por nombre del propietario
+            const serviciosCliente = DataStore.services.filter(s =>
+                String(s.cliente_id) === String(cliente.id) || s.owner === cliente.nombre
+            );
+            const ultimoServicio = serviciosCliente.length > 0
                 ? DataUtils.formatDate(serviciosCliente[serviciosCliente.length - 1].date)
                 : 'Nunca';
             
@@ -154,7 +156,6 @@ const UIManager = {
                 <td>${cliente.nombre}</td>
                 <td>${cliente.telefono}</td>
                 <td>${cliente.email || 'No tiene'}</td>
-                <td>${cliente.direccion || 'No registrada'}</td>
                 <td>${vehiculosCliente.length}</td>
                 <td>${ultimoServicio}</td>
                 <td>
@@ -204,9 +205,9 @@ const UIManager = {
             card.innerHTML = `
                 <div class="service-id" style="font-size: 1rem; color: var(--primary); margin-bottom: 0.5rem;">
                     ${servicio.nombre}
-                    <span class="badge ${servicio.categoria === 'Mantenimiento' ? 'badge-success' : servicio.categoria === 'Reparación' ? 'badge-warning' : 'badge-info'}" 
+                    <span class="badge ${servicio.categoria === 'preventivo' ? 'badge-success' : servicio.categoria === 'correctivo' ? 'badge-warning' : 'badge-info'}"
                           style="margin-left: 0.5rem; font-size: 0.7rem;">
-                        ${servicio.categoria || 'General'}
+                        ${servicio.categoria === 'preventivo' ? 'Preventivo' : servicio.categoria === 'correctivo' ? 'Correctivo' : servicio.categoria || 'General'}
                     </span>
                 </div>
                 <div style="margin-bottom: 1rem; color: var(--gray-600); font-size: 0.875rem;">

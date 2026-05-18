@@ -3,11 +3,17 @@ const AppState = {
     currentPage: 'agenda',
     currentTab: 'all',
     currentView: 'list',
+    currentReport: 'diario',
+    currentConfig: 'perfil',
     editingServiceId: null,
     editingVehiculoId: null,
     editingClienteId: null,
     editingServicioId: null,
-    editingEmpleadoId: null
+    editingEmpleadoId: null,
+    searchAgenda: '',
+    searchVehiculos: '',
+    searchClientes: '',
+    searchServicios: ''
 };
 
 // Datos de la aplicación
@@ -41,6 +47,28 @@ const DataUtils = {
             id += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return id;
+    },
+
+    generateUUID: () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+    },
+
+    // Genera código de seguimiento legible: TH-YYMMDD-XXXX
+    generateTrackingCode: () => {
+        const now = new Date();
+        const y = String(now.getFullYear()).slice(2);
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let suffix = '';
+        for (let i = 0; i < 4; i++) {
+            suffix += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return `TH-${y}${m}${d}-${suffix}`;
     },
     
     formatDate: (dateStr) => {
@@ -99,12 +127,12 @@ const DataUtils = {
         }
     },
     
-    // Buscar por ID
-    findServiceById: (id) => DataStore.services.find(s => s.id === id),
-    findVehiculoById: (id) => DataStore.vehiculos.find(v => v.id === id),
-    findClienteById: (id) => DataStore.clientes.find(c => c.id === id),
-    findServicioById: (id) => DataStore.tiposServicio.find(s => s.id === id),
-    findEmpleadoById: (id) => DataStore.empleados.find(e => e.id === id),
+    // Buscar por ID — String comparison handles mixed int/string IDs from DOM attributes
+    findServiceById:  (id) => DataStore.services.find(s => String(s.id) === String(id)),
+    findVehiculoById: (id) => DataStore.vehiculos.find(v => String(v.id) === String(id)),
+    findClienteById:  (id) => DataStore.clientes.find(c => String(c.id) === String(id)),
+    findServicioById: (id) => DataStore.tiposServicio.find(s => String(s.id) === String(id)),
+    findEmpleadoById: (id) => DataStore.empleados.find(e => String(e.id) === String(id)),
     
     // Obtener servicios por fecha
     getServicesByDate: (date) => {

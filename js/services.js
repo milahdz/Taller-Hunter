@@ -1,350 +1,290 @@
-// ========== SERVICE MANAGER ==========
+// services.js — sincronizado con esquema real de Supabase
+
+// ========== SERVICE MANAGER (registro_servicio_vehiculo) ==========
 const ServiceManager = {
-    // Crear nueva cita
     async createService(serviceData) {
         try {
-            // Buscar cliente por nombre
-            const cliente = DataStore.clientes.find(c => c.nombre === serviceData.owner);
+            const cliente  = DataStore.clientes.find(c => c.nombre === serviceData.owner);
             const empleado = DataStore.empleados.find(e => e.nombre === serviceData.employee);
-            
-            // Preparar datos para Supabase
-            const supabaseServiceData = {
-                id: DataUtils.generateId('A'),
-                vehiculo_id: '', // Se puede dejar vacío si no tenemos el ID
-                cliente_id: cliente?.id || '',
-                fecha: serviceData.date,
-                hora: serviceData.time,
-                tipo_servicio: serviceData.service,
-                empleado_id: empleado?.id || '',
-                estado: 'Pendiente',
-                notas: serviceData.notes || ''
+
+            const codigoSeg = DataUtils.generateTrackingCode();
+            const datos = {
+                id:                 DataUtils.generateUUID(),
+                codigo_seguimiento: codigoSeg,
+                vehiculo_id:        null,
+                cliente_id:         cliente?.id || null,
+                tipo_servicio_id:   null,
+                empleado_id:        String(empleado?.id || ''),
+                placa:            serviceData.vehicle || null,
+                propietario:      serviceData.owner   || null,
+                tipo_servicio:    serviceData.service || null,
+                empleado:         serviceData.employee || null,
+                fecha:            serviceData.date,
+                hora:             serviceData.time    || '08:00:00',
+                telefono:         serviceData.phone   || null,
+                notas:            serviceData.notes   || null,
+                estado:           'Pendiente'
             };
-            
-            console.log('Creando servicio en Supabase:', supabaseServiceData);
-            const result = await DB.createServicio(supabaseServiceData);
-            
-            // Actualizar DataStore local
+
+            const result = await DB.createServicio(datos);
             const newService = {
-                id: result.id,
-                vehicle: serviceData.vehicle,
-                owner: serviceData.owner,
-                date: serviceData.date,
-                service: serviceData.service,
-                phone: serviceData.phone || 'No especificado',
-                time: serviceData.time,
-                employee: serviceData.employee,
-                status: 'pending',
-                notes: serviceData.notes || ''
+                id:                 result.id,
+                codigo_seguimiento: result.codigo_seguimiento || codigoSeg,
+                cliente_id:         result.cliente_id || '',
+                vehicle:    result.placa       || serviceData.vehicle || 'N/A',
+                owner:      result.propietario || serviceData.owner   || 'N/A',
+                date:       result.fecha,
+                service:    result.tipo_servicio || serviceData.service || 'N/A',
+                phone:      result.telefono      || serviceData.phone  || '',
+                time:       result.hora          || serviceData.time   || '08:00',
+                employee:   result.empleado      || serviceData.employee || 'Sin asignar',
+                status:     'pending',
+                notes:      result.notas || ''
             };
-            
             DataStore.services.push(newService);
             return newService;
-            
-        } catch (error) {
-            console.error('Error creando servicio:', error);
-            mostrarNotificacion('Error creando servicio: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error creando servicio: ' + e.message, 'error');
+            throw e;
         }
     },
-    
-    // Actualizar cita existente
+
     async updateService(serviceId, updates) {
         try {
-            console.log('Actualizando servicio:', serviceId, updates);
-            const result = await DB.updateServicio(serviceId, updates);
-            
-            // Actualizar DataStore local
-            const index = DataStore.services.findIndex(s => s.id === serviceId);
-            if (index !== -1) {
-                DataStore.services[index] = { ...DataStore.services[index], ...updates };
-            }
-            
-            return DataStore.services[index];
-            
-        } catch (error) {
-            console.error('Error actualizando servicio:', error);
-            mostrarNotificacion('Error actualizando servicio: ' + error.message, 'error');
-            throw error;
+            await DB.updateServicio(serviceId, updates);
+            const idx = DataStore.services.findIndex(s => s.id === serviceId);
+            if (idx !== -1) DataStore.services[idx] = { ...DataStore.services[idx], ...updates };
+            return DataStore.services[idx];
+        } catch (e) {
+            mostrarNotificacion('Error actualizando servicio: ' + e.message, 'error');
+            throw e;
         }
     },
-    
-    // Eliminar cita
+
     async deleteService(serviceId) {
         try {
             await DB.deleteServicio(serviceId);
-            
-            // Eliminar de DataStore local
-            const index = DataStore.services.findIndex(s => s.id === serviceId);
-            if (index !== -1) {
-                DataStore.services.splice(index, 1);
-                return true;
-            }
+            const idx = DataStore.services.findIndex(s => s.id === serviceId);
+            if (idx !== -1) { DataStore.services.splice(idx, 1); return true; }
             return false;
-            
-        } catch (error) {
-            console.error('Error eliminando servicio:', error);
-            mostrarNotificacion('Error eliminando servicio: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error eliminando servicio: ' + e.message, 'error');
+            throw e;
         }
     },
-    
-    // Cambiar estado de cita
+
     async changeServiceStatus(serviceId, newStatus) {
-        return await this.updateService(serviceId, { estado: newStatus });
+        return this.updateService(serviceId, { estado: newStatus });
     },
-
-    // Completar cita
-    async completeService(serviceId) {
-        return await this.changeServiceStatus(serviceId, 'Completado');
-    },
-
-    // Poner en proceso
-    async startService(serviceId) {
-        return await this.changeServiceStatus(serviceId, 'En Proceso');
-    }
+    async completeService(id) { return this.changeServiceStatus(id, 'Completado'); },
+    async startService(id)    { return this.changeServiceStatus(id, 'En Proceso'); }
 };
 
 // ========== VEHICULO MANAGER ==========
+// Columnas reales: id, placa, modelo, marca, anio, color, cliente, ultimo_servicio, estado, cliente_id
 const VehiculoManager = {
     async createVehiculo(vehiculoData) {
         try {
-            const supabaseData = {
-                id: DataUtils.generateId('V'),
-                placa: vehiculoData.placa,
-                marca: vehiculoData.marca,
-                modelo: vehiculoData.modelo,
-                año: vehiculoData.año || '',
-                color: vehiculoData.color || '',
-                cliente_id: vehiculoData.clienteId,
-                kilometraje: vehiculoData.kilometraje || '',
-                notas: vehiculoData.notas || ''
+            // id is INTEGER SERIAL auto-generated by Supabase
+            const clienteObj = DataStore.clientes.find(c => String(c.id) === String(vehiculoData.clienteId));
+
+            const payload = {
+                placa:      vehiculoData.placa,
+                marca:      vehiculoData.marca   || null,
+                modelo:     vehiculoData.modelo  || null,
+                anio:       vehiculoData.anio ? parseInt(vehiculoData.anio) : null,
+                color:      vehiculoData.color   || null,
+                cliente_id: vehiculoData.clienteId || null,
+                cliente:    clienteObj?.nombre   || null,
+                estado:     'activo'
             };
-            
-            console.log('Creando vehículo en Supabase:', supabaseData);
-            const result = await DB.createVehiculo(supabaseData);
-            
-            // Actualizar DataStore local
+
+            const result = await DB.createVehiculo(payload);
             const newVehiculo = {
-                id: result.id,
-                placa: result.placa,
-                marca: result.marca,
-                modelo: result.modelo,
-                año: result.año,
-                color: result.color,
-                clienteId: result.cliente_id,
-                kilometraje: result.kilometraje,
-                notas: result.notas
+                id:        result.id,
+                placa:     result.placa       || '',
+                marca:     result.marca       || '',
+                modelo:    result.modelo      || '',
+                anio:      result.anio        || '',
+                color:     result.color       || '',
+                clienteId: result.cliente_id  || '',
+                cliente:   result.cliente     || clienteObj?.nombre || '',
+                estado:    result.estado      || 'Activo'
             };
-            
             DataStore.vehiculos.push(newVehiculo);
             return newVehiculo;
-            
-        } catch (error) {
-            console.error('Error creando vehículo:', error);
-            mostrarNotificacion('Error creando vehículo: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error creando vehículo: ' + e.message, 'error');
+            throw e;
         }
     },
-    
+
     async updateVehiculo(vehiculoId, updates) {
         try {
-            const supabaseUpdates = {
-                placa: updates.placa,
-                marca: updates.marca,
-                modelo: updates.modelo,
-                año: updates.año,
-                color: updates.color,
-                cliente_id: updates.clienteId,
-                kilometraje: updates.kilometraje,
-                notas: updates.notas
+            const clienteObj = updates.clienteId
+                ? DataStore.clientes.find(c => String(c.id) === String(updates.clienteId))
+                : null;
+
+            const payload = {
+                placa:      updates.placa,
+                marca:      updates.marca     || null,
+                modelo:     updates.modelo    || null,
+                anio:       updates.anio ? parseInt(updates.anio) : null,
+                color:      updates.color     || null,
+                cliente_id: updates.clienteId || null,
+                cliente:    clienteObj?.nombre || null
             };
-            
-            console.log('Actualizando vehículo:', vehiculoId, supabaseUpdates);
-            const result = await DB.updateVehiculo(vehiculoId, supabaseUpdates);
-            
-            // Actualizar DataStore local
-            const index = DataStore.vehiculos.findIndex(v => v.id === vehiculoId);
-            if (index !== -1) {
-                DataStore.vehiculos[index] = { ...DataStore.vehiculos[index], ...updates };
-            }
-            
-            return DataStore.vehiculos[index];
-            
-        } catch (error) {
-            console.error('Error actualizando vehículo:', error);
-            mostrarNotificacion('Error actualizando vehículo: ' + error.message, 'error');
-            throw error;
+            await DB.updateVehiculo(vehiculoId, payload);
+            const idx = DataStore.vehiculos.findIndex(v => String(v.id) === String(vehiculoId));
+            if (idx !== -1) DataStore.vehiculos[idx] = { ...DataStore.vehiculos[idx], ...updates };
+            return DataStore.vehiculos[idx];
+        } catch (e) {
+            mostrarNotificacion('Error actualizando vehículo: ' + e.message, 'error');
+            throw e;
         }
     },
-    
+
     async deleteVehiculo(vehiculoId) {
         try {
             await DB.deleteVehiculo(vehiculoId);
-            
-            // Eliminar de DataStore local
-            const index = DataStore.vehiculos.findIndex(v => v.id === vehiculoId);
-            if (index !== -1) {
-                DataStore.vehiculos.splice(index, 1);
-                return true;
-            }
+            const idx = DataStore.vehiculos.findIndex(v => String(v.id) === String(vehiculoId));
+            if (idx !== -1) { DataStore.vehiculos.splice(idx, 1); return true; }
             return false;
-            
-        } catch (error) {
-            console.error('Error eliminando vehículo:', error);
-            mostrarNotificacion('Error eliminando vehículo: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error eliminando vehículo: ' + e.message, 'error');
+            throw e;
         }
     }
 };
 
 // ========== CLIENTE MANAGER ==========
+// Columnas reales: id, nombre, email, telefono  (vehiculos/total_servicios/desde/estado son computed)
 const ClienteManager = {
     async createCliente(clienteData) {
         try {
-            const supabaseData = {
-                id: DataUtils.generateId('C'),
-                nombre: clienteData.nombre,
-                telefono: clienteData.telefono,
-                email: clienteData.email || '',
-                direccion: clienteData.direccion || '',
-                notas: clienteData.notas || ''
+            // clientes table has no DB default — generate UUID here
+            const payload = {
+                id:       DataUtils.generateUUID(),
+                nombre:   clienteData.nombre,
+                email:    clienteData.email    || null,
+                telefono: clienteData.telefono || null
             };
-            
-            console.log('Creando cliente en Supabase:', supabaseData);
-            const result = await DB.createCliente(supabaseData);
-            
-            // Actualizar DataStore local
+            const result = await DB.createCliente(payload);
             const newCliente = {
-                id: result.id,
-                nombre: result.nombre,
-                telefono: result.telefono,
-                email: result.email,
-                direccion: result.direccion,
-                notas: result.notas
+                id:       result.id,
+                nombre:   result.nombre   || '',
+                telefono: result.telefono || '',
+                email:    result.email    || '',
+                desde:    result.desde    || '',
+                estado:   result.estado   || ''
             };
-            
             DataStore.clientes.push(newCliente);
             return newCliente;
-            
-        } catch (error) {
-            console.error('Error creando cliente:', error);
-            mostrarNotificacion('Error creando cliente: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error creando cliente: ' + e.message, 'error');
+            throw e;
         }
     },
-    
+
     async updateCliente(clienteId, updates) {
         try {
-            console.log('Actualizando cliente:', clienteId, updates);
-            const result = await DB.updateCliente(clienteId, updates);
-            
-            // Actualizar DataStore local
-            const index = DataStore.clientes.findIndex(c => c.id === clienteId);
-            if (index !== -1) {
-                DataStore.clientes[index] = { ...DataStore.clientes[index], ...updates };
-            }
-            
-            return DataStore.clientes[index];
-            
-        } catch (error) {
-            console.error('Error actualizando cliente:', error);
-            mostrarNotificacion('Error actualizando cliente: ' + error.message, 'error');
-            throw error;
+            const payload = {
+                nombre:   updates.nombre,
+                email:    updates.email    || null,
+                telefono: updates.telefono || null
+            };
+            await DB.updateCliente(clienteId, payload);
+            const idx = DataStore.clientes.findIndex(c => c.id === clienteId);
+            if (idx !== -1) DataStore.clientes[idx] = { ...DataStore.clientes[idx], ...payload };
+            return DataStore.clientes[idx];
+        } catch (e) {
+            mostrarNotificacion('Error actualizando cliente: ' + e.message, 'error');
+            throw e;
         }
     },
-    
+
     async deleteCliente(clienteId) {
         try {
             await DB.deleteCliente(clienteId);
-            
-            // Eliminar de DataStore local
-            const index = DataStore.clientes.findIndex(c => c.id === clienteId);
-            if (index !== -1) {
-                DataStore.clientes.splice(index, 1);
-                return true;
-            }
+            const idx = DataStore.clientes.findIndex(c => c.id === clienteId);
+            if (idx !== -1) { DataStore.clientes.splice(idx, 1); return true; }
             return false;
-            
-        } catch (error) {
-            console.error('Error eliminando cliente:', error);
-            mostrarNotificacion('Error eliminando cliente: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error eliminando cliente: ' + e.message, 'error');
+            throw e;
         }
     }
 };
 
-// ========== SERVICIO MANAGER (Tipos de servicio) ==========
+// ========== SERVICIO MANAGER (tipos_servicio) ==========
+// Columnas reales: id, codigo, nombre, categoria, duracion, precio_base, descripcion, estado
 const ServicioManager = {
     async createServicio(servicioData) {
         try {
-            const supabaseData = {
-                id: DataUtils.generateId('TS'),
-                nombre: servicioData.nombre,
-                descripcion: servicioData.descripcion || '',
-                precio: servicioData.precio,
-                duracion: servicioData.duracion || '',
-                categoria: servicioData.categoria || ''
+            const precio    = parseFloat(servicioData.precio || servicioData.precio_base) || 0;
+            const codigoGen = DataUtils.generateId('S');
+            const payload = {
+                id:          DataUtils.generateUUID(),   // in case table lacks DEFAULT
+                codigo:      codigoGen,
+                nombre:      servicioData.nombre,
+                descripcion: servicioData.descripcion || null,
+                precio_base: precio,
+                duracion:    servicioData.duracion    || null,
+                categoria:   servicioData.categoria   || null,
+                estado:      'activo'
             };
-            
-            console.log('Creando tipo de servicio en Supabase:', supabaseData);
-            const result = await DB.createTipoServicio(supabaseData);
-            
-            // Actualizar DataStore local
+            const result = await DB.createTipoServicio(payload);
             const newServicio = {
-                id: result.id,
-                nombre: result.nombre,
-                descripcion: result.descripcion,
-                precio: result.precio,
-                duracion: result.duracion,
-                categoria: result.categoria
+                id:          result.id,               // UUID from DB
+                codigo:      result.codigo      || codigoGen,
+                nombre:      result.nombre      || '',
+                descripcion: result.descripcion || '',
+                precio:      result.precio_base ?? 0,
+                duracion:    result.duracion    || '',
+                categoria:   result.categoria   || ''
             };
-            
             DataStore.tiposServicio.push(newServicio);
             return newServicio;
-            
-        } catch (error) {
-            console.error('Error creando tipo de servicio:', error);
-            mostrarNotificacion('Error creando tipo de servicio: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error creando tipo de servicio: ' + e.message, 'error');
+            throw e;
         }
     },
-    
+
     async updateServicio(servicioId, updates) {
         try {
-            console.log('Actualizando tipo de servicio:', servicioId, updates);
-            const result = await DB.updateTipoServicio(servicioId, updates);
-            
-            // Actualizar DataStore local
-            const index = DataStore.tiposServicio.findIndex(s => s.id === servicioId);
-            if (index !== -1) {
-                DataStore.tiposServicio[index] = { ...DataStore.tiposServicio[index], ...updates };
+            const payload = {
+                nombre:      updates.nombre,
+                descripcion: updates.descripcion || null,
+                precio_base: parseFloat(updates.precio || updates.precio_base) || 0,
+                duracion:    updates.duracion    || null,
+                categoria:   updates.categoria   || null
+            };
+            await DB.updateTipoServicio(servicioId, payload);
+            const idx = DataStore.tiposServicio.findIndex(s => s.id === servicioId);
+            if (idx !== -1) {
+                DataStore.tiposServicio[idx] = {
+                    ...DataStore.tiposServicio[idx],
+                    ...updates,
+                    precio: payload.precio_base
+                };
             }
-            
-            return DataStore.tiposServicio[index];
-            
-        } catch (error) {
-            console.error('Error actualizando tipo de servicio:', error);
-            mostrarNotificacion('Error actualizando tipo de servicio: ' + error.message, 'error');
-            throw error;
+            return DataStore.tiposServicio[idx];
+        } catch (e) {
+            mostrarNotificacion('Error actualizando tipo de servicio: ' + e.message, 'error');
+            throw e;
         }
     },
-    
+
     async deleteServicio(servicioId) {
         try {
             await DB.deleteTipoServicio(servicioId);
-            
-            // Eliminar de DataStore local
-            const index = DataStore.tiposServicio.findIndex(s => s.id === servicioId);
-            if (index !== -1) {
-                DataStore.tiposServicio.splice(index, 1);
-                return true;
-            }
+            const idx = DataStore.tiposServicio.findIndex(s => s.id === servicioId);
+            if (idx !== -1) { DataStore.tiposServicio.splice(idx, 1); return true; }
             return false;
-            
-        } catch (error) {
-            console.error('Error eliminando tipo de servicio:', error);
-            mostrarNotificacion('Error eliminando tipo de servicio: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error eliminando tipo de servicio: ' + e.message, 'error');
+            throw e;
         }
     }
 };
@@ -353,74 +293,53 @@ const ServicioManager = {
 const EmpleadoManager = {
     async createEmpleado(empleadoData) {
         try {
-            const supabaseData = {
-                id: DataUtils.generateId('E'),
-                nombre: empleadoData.nombre,
-                especialidad: empleadoData.especialidad || '',
-                telefono: empleadoData.telefono || '',
-                email: empleadoData.email || '',
-                horario: empleadoData.horario || ''
+            // empleados.id is TEXT — must be provided (no auto-generate in DB)
+            const payload = {
+                id:           DataUtils.generateUUID(),
+                nombre:       empleadoData.nombre,
+                especialidad: empleadoData.especialidad || null,
+                telefono:     empleadoData.telefono     || null,
+                email:        empleadoData.email        || null,
+                horario:      empleadoData.horario      || null
             };
-            
-            console.log('Creando empleado en Supabase:', supabaseData);
-            const result = await DB.createEmpleado(supabaseData);
-            
-            // Actualizar DataStore local
+            const result = await DB.createEmpleado(payload);
             const newEmpleado = {
-                id: result.id,
-                nombre: result.nombre,
-                especialidad: result.especialidad,
-                telefono: result.telefono,
-                email: result.email,
-                horario: result.horario
+                id:           result.id,
+                nombre:       result.nombre       || '',
+                especialidad: result.especialidad || '',
+                telefono:     result.telefono     || '',
+                email:        result.email        || '',
+                horario:      result.horario      || ''
             };
-            
             DataStore.empleados.push(newEmpleado);
             return newEmpleado;
-            
-        } catch (error) {
-            console.error('Error creando empleado:', error);
-            mostrarNotificacion('Error creando empleado: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error creando empleado: ' + e.message, 'error');
+            throw e;
         }
     },
-    
+
     async updateEmpleado(empleadoId, updates) {
         try {
-            console.log('Actualizando empleado:', empleadoId, updates);
-            const result = await DB.updateEmpleado(empleadoId, updates);
-            
-            // Actualizar DataStore local
-            const index = DataStore.empleados.findIndex(e => e.id === empleadoId);
-            if (index !== -1) {
-                DataStore.empleados[index] = { ...DataStore.empleados[index], ...updates };
-            }
-            
-            return DataStore.empleados[index];
-            
-        } catch (error) {
-            console.error('Error actualizando empleado:', error);
-            mostrarNotificacion('Error actualizando empleado: ' + error.message, 'error');
-            throw error;
+            await DB.updateEmpleado(empleadoId, updates);
+            const idx = DataStore.empleados.findIndex(e => e.id === empleadoId);
+            if (idx !== -1) DataStore.empleados[idx] = { ...DataStore.empleados[idx], ...updates };
+            return DataStore.empleados[idx];
+        } catch (e) {
+            mostrarNotificacion('Error actualizando empleado: ' + e.message, 'error');
+            throw e;
         }
     },
-    
+
     async deleteEmpleado(empleadoId) {
         try {
             await DB.deleteEmpleado(empleadoId);
-            
-            // Eliminar de DataStore local
-            const index = DataStore.empleados.findIndex(e => e.id === empleadoId);
-            if (index !== -1) {
-                DataStore.empleados.splice(index, 1);
-                return true;
-            }
+            const idx = DataStore.empleados.findIndex(e => e.id === empleadoId);
+            if (idx !== -1) { DataStore.empleados.splice(idx, 1); return true; }
             return false;
-            
-        } catch (error) {
-            console.error('Error eliminando empleado:', error);
-            mostrarNotificacion('Error eliminando empleado: ' + error.message, 'error');
-            throw error;
+        } catch (e) {
+            mostrarNotificacion('Error eliminando empleado: ' + e.message, 'error');
+            throw e;
         }
     }
 };
@@ -431,36 +350,21 @@ const ConfiguracionManager = {
         DataStore.configuracion = { ...DataStore.configuracion, ...updates };
         return DataStore.configuracion;
     },
-    
-    getConfiguracion: () => {
-        return DataStore.configuracion;
-    }
+    getConfiguracion: () => DataStore.configuracion
 };
 
-// ========== HELPER FUNCTION ==========
+// ========== HELPER ==========
 function mostrarNotificacion(mensaje, tipo = 'info') {
     if (typeof UIManager !== 'undefined' && UIManager.showNotification) {
         UIManager.showNotification(mensaje, tipo);
     } else {
-        alert(mensaje);
+        console.error(mensaje);
     }
 }
 
-// Exportar para uso global
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { 
-        ServiceManager, 
-        VehiculoManager, 
-        ClienteManager, 
-        ServicioManager, 
-        EmpleadoManager, 
-        ConfiguracionManager 
-    };
-} else {
-    window.ServiceManager = ServiceManager;
-    window.VehiculoManager = VehiculoManager;
-    window.ClienteManager = ClienteManager;
-    window.ServicioManager = ServicioManager;
-    window.EmpleadoManager = EmpleadoManager;
-    window.ConfiguracionManager = ConfiguracionManager;
-}
+window.ServiceManager   = ServiceManager;
+window.VehiculoManager  = VehiculoManager;
+window.ClienteManager   = ClienteManager;
+window.ServicioManager  = ServicioManager;
+window.EmpleadoManager  = EmpleadoManager;
+window.ConfiguracionManager = ConfiguracionManager;

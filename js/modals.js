@@ -18,16 +18,14 @@ const ModalManager = {
         if (vehiculoData) {
             title.textContent = 'Editar Vehículo';
             AppState.editingVehiculoId = vehiculoData.id;
-            
+
             // Rellenar formulario con datos existentes
             document.getElementById('vehiculoPlaca').value = vehiculoData.placa || '';
             document.getElementById('vehiculoMarca').value = vehiculoData.marca || '';
             document.getElementById('vehiculoModelo').value = vehiculoData.modelo || '';
-            document.getElementById('vehiculoAnio').value = vehiculoData.año || '';
+            document.getElementById('vehiculoAnio').value = vehiculoData.anio || '';
             document.getElementById('vehiculoColor').value = vehiculoData.color || '';
             document.getElementById('vehiculoCliente').value = vehiculoData.clienteId || '';
-            document.getElementById('vehiculoKilometraje').value = vehiculoData.kilometraje || '';
-            document.getElementById('vehiculoNotas').value = vehiculoData.notas || '';
         } else {
             title.textContent = 'Nuevo Vehículo';
             AppState.editingVehiculoId = null;
@@ -55,11 +53,9 @@ const ModalManager = {
             placa: document.getElementById('vehiculoPlaca').value,
             marca: document.getElementById('vehiculoMarca').value,
             modelo: document.getElementById('vehiculoModelo').value,
-            año: document.getElementById('vehiculoAnio').value || '',
+            anio: document.getElementById('vehiculoAnio').value || '',
             color: document.getElementById('vehiculoColor').value || '',
-            clienteId: document.getElementById('vehiculoCliente').value,
-            kilometraje: document.getElementById('vehiculoKilometraje').value || '',
-            notas: document.getElementById('vehiculoNotas').value || ''
+            clienteId: document.getElementById('vehiculoCliente').value
         };
         
         if (AppState.editingVehiculoId) {
@@ -116,8 +112,6 @@ const ModalManager = {
             document.getElementById('clienteNombre').value = clienteData.nombre || '';
             document.getElementById('clienteTelefono').value = clienteData.telefono || '';
             document.getElementById('clienteEmail').value = clienteData.email || '';
-            document.getElementById('clienteDireccion').value = clienteData.direccion || '';
-            document.getElementById('clienteNotas').value = clienteData.notas || '';
         } else {
             title.textContent = 'Nuevo Cliente';
             AppState.editingClienteId = null;
@@ -144,9 +138,7 @@ const ModalManager = {
         const clienteData = {
             nombre: document.getElementById('clienteNombre').value,
             telefono: document.getElementById('clienteTelefono').value,
-            email: document.getElementById('clienteEmail').value || '',
-            direccion: document.getElementById('clienteDireccion').value || '',
-            notas: document.getElementById('clienteNotas').value || ''
+            email: document.getElementById('clienteEmail').value || ''
         };
         
         if (AppState.editingClienteId) {

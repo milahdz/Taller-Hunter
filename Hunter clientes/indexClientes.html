@@ -133,7 +133,7 @@
                 </div>
                 <div class="about-image">
                     <div class="image-container">
-                        <img src="C:/Users/PC/Desktop/Hunter clientes/img/foto2.jpg" alt="Taller Hunter - 25 años de experiencia">
+                        <img src="img/foto2.jpg" alt="Taller Hunter - 25 años de experiencia">
                         <div class="image-caption">
                             <i class="fas fa-wrench"></i>
                             <span>Taller Hunter - 25 años de experiencia</span>
@@ -294,6 +294,19 @@
         <i class="fas fa-arrow-up"></i>
     </a>
 
+    <!-- Supabase UMD — carga síncrona, disponible antes del DOMContentLoaded -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script>
+        try {
+            window._sbCliente = window.supabase.createClient(
+                'https://nthowcrcdsgiaekedvzr.supabase.co',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50aG93Y3JjZHNnaWFla2VkdnpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTI3MjIsImV4cCI6MjA4MDY4ODcyMn0.BnqOeVPlBN52hxZWv88rohprQszE7ynnWrCpydDTYhY'
+            );
+            console.log('✅ Supabase cliente listo');
+        } catch(e) {
+            console.error('❌ Supabase no pudo inicializarse:', e);
+        }
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
