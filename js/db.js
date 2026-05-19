@@ -163,7 +163,7 @@ const DB = {
                 color:      datos.color       || null,
                 cliente_id: datos.cliente_id  || null,
                 cliente:    datos.cliente     || null,
-                estado:     datos.estado      || 'activo'
+                estado:     datos.estado      || 'Activo'
             };
             const { data, error } = await supabase
                 .from('vehiculos')
@@ -341,6 +341,64 @@ const DB = {
             this.getTodosEmpleados()
         ]);
         return { clientes: clientes || [], vehiculos: vehiculos || [], tipos: tipos || [], empleados: empleados || [] };
+    },
+
+    // ===== PROGRESO DEL VEHÍCULO =====
+    async updateProgreso(servicioId, progreso, observaciones, usuario) {
+        const _esErrorDeEsquema = (e) =>
+            e?.message?.includes('schema cache') ||
+            e?.message?.includes('column') ||
+            e?.code === 'PGRST204' ||
+            String(e?.message).includes('progreso');
+
+        // 1. Intentar guardar la columna progreso en el servicio
+        try {
+            const { error } = await supabase
+                .from('registro_servicio_vehiculo')
+                .update({ progreso })
+                .eq('id', servicioId);
+
+            if (error) {
+                if (_esErrorDeEsquema(error)) {
+                    console.warn(
+                        '⚠️ La columna "progreso" aún no existe en la BD.\n' +
+                        '   Ejecuta migrations/agregar_progreso.sql en Supabase SQL Editor.'
+                    );
+                } else {
+                    throw error;
+                }
+            }
+        } catch (e) {
+            if (!_esErrorDeEsquema(e)) throw e;
+        }
+
+        // 2. Intentar guardar en historial_progreso (también puede fallar si la tabla no existe)
+        try {
+            await supabase
+                .from('historial_progreso')
+                .insert([{
+                    servicio_id:   servicioId,
+                    progreso,
+                    observaciones: observaciones || null,
+                    usuario:       usuario || 'Sistema'
+                }]);
+        } catch (e2) {
+            console.warn('⚠️ Tabla historial_progreso no existe aún.', e2?.message);
+        }
+
+        return { id: servicioId, progreso };
+    },
+
+    async getHistorialProgreso(servicioId) {
+        try {
+            const { data, error } = await supabase
+                .from('historial_progreso')
+                .select('*')
+                .eq('servicio_id', servicioId)
+                .order('created_at', { ascending: true });
+            if (error) return [];
+            return data || [];
+        } catch (e) { return []; }
     },
 
     // ===== TEST DE CONEXIÓN =====

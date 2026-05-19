@@ -329,11 +329,11 @@
                 
                 // Éxito
                 showMessage('¡Inicio de sesión exitoso! Redirigiendo...', 'success');
-                
-                // Redirigir después de 2 segundos
+
+                // Redirigir directamente al dashboard principal
                 setTimeout(() => {
-                    window.location.href = 'dashboard.html';
-                }, 2000);
+                    window.location.href = '../html/index.html';
+                }, 800);
                 
                 return true;
                 
@@ -375,8 +375,8 @@
                     const user = JSON.parse(userData);
                     showMessage(`Bienvenido de nuevo ${user.nombre}. Redirigiendo...`, 'success');
                     setTimeout(() => {
-                        window.location.href = 'dashboard.html';
-                    }, 1500);
+                        window.location.href = '../html/index.html';
+                    }, 800);
                 } catch (error) {
                     localStorage.removeItem('tallerhunter_user');
                 }

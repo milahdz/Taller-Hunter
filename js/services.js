@@ -77,7 +77,35 @@ const ServiceManager = {
         return this.updateService(serviceId, { estado: newStatus });
     },
     async completeService(id) { return this.changeServiceStatus(id, 'Completado'); },
-    async startService(id)    { return this.changeServiceStatus(id, 'En Proceso'); }
+    async startService(id)    { return this.changeServiceStatus(id, 'En Proceso'); },
+
+    async updateProgreso(servicioId, progreso, observaciones) {
+        try {
+            const userData = JSON.parse(localStorage.getItem('tallerhunter_user') || '{}');
+            const usuario  = userData.nombre || 'Sistema';
+            await DB.updateProgreso(servicioId, progreso, observaciones, usuario);
+            const idx = DataStore.services.findIndex(s => s.id === servicioId);
+            if (idx !== -1) DataStore.services[idx].progreso = progreso;
+
+            // Sincronizar estado del servicio según progreso
+            const estadoMap = {
+                recepcion:   'En Proceso',
+                diagnostico: 'En Proceso',
+                reparacion:  'En Proceso',
+                calidad:     'En Proceso',
+                entrega:     'Completado'
+            };
+            const nuevoEstado = estadoMap[progreso];
+            if (nuevoEstado) {
+                await DB.updateServicio(servicioId, { estado: nuevoEstado });
+                if (idx !== -1) DataStore.services[idx].status = nuevoEstado === 'Completado' ? 'completed' : 'process';
+            }
+            return DataStore.services[idx];
+        } catch (e) {
+            mostrarNotificacion('Error actualizando progreso: ' + e.message, 'error');
+            throw e;
+        }
+    }
 };
 
 // ========== VEHICULO MANAGER ==========
@@ -96,7 +124,7 @@ const VehiculoManager = {
                 color:      vehiculoData.color   || null,
                 cliente_id: vehiculoData.clienteId || null,
                 cliente:    clienteObj?.nombre   || null,
-                estado:     'activo'
+                estado:     'Activo'
             };
 
             const result = await DB.createVehiculo(payload);

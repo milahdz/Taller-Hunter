@@ -540,6 +540,33 @@
     <script src="../js/agenda.js"></script>
     <script src="../js/main.js"></script>
 
+<!-- Modal de Progreso del Vehículo -->
+<div class="modal" id="progresoModal" role="dialog" aria-modal="true" aria-labelledby="progresoModalTitle" style="display:none;">
+    <div class="modal-content" style="max-width:560px;">
+        <div class="modal-header">
+            <h3 id="progresoModalTitle">Actualizar Progreso del Vehículo</h3>
+            <button class="close-modal" onclick="cerrarModalProgreso()" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:var(--gray-500);font-size:13px;margin-bottom:20px;">
+                Selecciona el paso actual del vehículo haciendo clic sobre él.
+            </p>
+            <div id="progresoStepsContainer" class="progreso-timeline-vertical"></div>
+            <div class="form-group" style="margin-top:20px;">
+                <label for="progresoObservaciones">Observaciones (opcional)</label>
+                <textarea id="progresoObservaciones" class="form-control" rows="2"
+                    placeholder="Notas sobre el estado actual del vehículo..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="cerrarModalProgreso()">Cancelar</button>
+            <button class="btn btn-primary" id="saveProgresoBtn" onclick="guardarProgreso()">
+                <i class="fas fa-save"></i> Guardar Progreso
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de Confirmación Global -->
 <div id="confirmModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99999; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:12px; padding:28px 32px; max-width:400px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3); text-align:center;">

@@ -1,5 +1,23 @@
 // main.js - VERSIÓN COMPLETA
 
+// ── Pasos de progreso del vehículo ────────────────────────────────────────────
+const PASOS_PROGRESO = [
+    { key: 'recepcion',   label: 'Recepción',    icon: 'fas fa-car',            desc: 'Vehículo recibido en el taller' },
+    { key: 'diagnostico', label: 'Diagnóstico',  icon: 'fas fa-search',         desc: 'Evaluación completa del vehículo' },
+    { key: 'reparacion',  label: 'Reparación',   icon: 'fas fa-tools',          desc: 'Vehículo en proceso de reparación' },
+    { key: 'calidad',     label: 'Calidad',       icon: 'fas fa-clipboard-check',desc: 'Verificación y control final' },
+    { key: 'entrega',     label: 'Entrega',       icon: 'fas fa-handshake',      desc: 'Vehículo listo y entregado al cliente' }
+];
+
+function getProgresoIndex(progreso) {
+    return PASOS_PROGRESO.findIndex(p => p.key === progreso);
+}
+
+function getProgresoLabel(progreso) {
+    const paso = PASOS_PROGRESO.find(p => p.key === progreso);
+    return paso ? paso.label : 'Sin iniciar';
+}
+
 // ── Confirmación global ───────────────────────────────────────────────────────
 const Confirmacion = {
     _resolver: null,
@@ -87,17 +105,34 @@ function normalizeStatus(estado) {
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('=== TALLER HUNTER ===');
+
+    // Verificar sesión — redirigir si no hay usuario
+    const sessionRaw = localStorage.getItem('tallerhunter_user');
+    if (!sessionRaw) {
+        window.location.href = '../login/index.html';
+        return;
+    }
+
     // Apply persisted theme
     const savedTheme = localStorage.getItem('th_theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    // Apply persisted admin name
-    const savedName = localStorage.getItem('th_admin_name');
-    if (savedName) {
+
+    // Cargar nombre real del usuario autenticado
+    try {
+        const userData = JSON.parse(sessionRaw);
+        const displayName = userData.nombre || localStorage.getItem('th_admin_name') || 'Administrador';
         const nameEl   = document.querySelector('.user-name');
         const avatarEl = document.querySelector('.user-avatar');
-        if (nameEl)   nameEl.textContent   = savedName;
-        if (avatarEl) avatarEl.textContent  = savedName.substring(0,2).toUpperCase();
+        if (nameEl)   nameEl.textContent  = displayName;
+        if (avatarEl) avatarEl.textContent = displayName.substring(0, 2).toUpperCase();
+        const roleEl = document.querySelector('.user-role');
+        if (roleEl) roleEl.textContent = userData.rol || 'Sistema';
+    } catch (e) {
+        localStorage.removeItem('tallerhunter_user');
+        window.location.href = '../login/index.html';
+        return;
     }
+
     setupConfirmModal();
     await initApp();
     setupEventListeners();
@@ -145,7 +180,8 @@ async function cargarDatosReales() {
                 time:       s.hora          || '08:00',
                 employee:   s.empleado      || (eObj ? eObj.nombre  : 'Sin asignar'),
                 status:     normalizeStatus(s.estado),
-                notes:      s.notas || ''
+                notes:      s.notas || '',
+                progreso:   s.progreso || null
             };
         });
 
@@ -276,6 +312,7 @@ function setupEventListeners() {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('tallerhunter_user');
             localStorage.removeItem('th_admin_name');
             localStorage.removeItem('th_theme');
             localStorage.removeItem('th_session');
@@ -336,6 +373,14 @@ function setupModalListeners() {
         const modal = document.getElementById(modalId);
         if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) cerrarModal(modalId); });
     });
+
+    // Modal de progreso: cerrar al click fuera
+    const progresoModal = document.getElementById('progresoModal');
+    if (progresoModal) {
+        progresoModal.addEventListener('click', (e) => {
+            if (e.target === progresoModal) cerrarModalProgreso();
+        });
+    }
 
     // Evitar envío nativo de formularios
     ['vehiculoForm', 'clienteForm', 'servicioForm', 'empleadoForm'].forEach(formId => {
@@ -761,6 +806,7 @@ function renderListaServicios() {
                     <tr>
                         <th>Código</th><th>Vehículo</th><th>Propietario</th><th>Fecha</th>
                         <th>Servicio</th><th>Empleado</th><th>Estado</th>
+                        <th>Progreso</th>
                         <th style="text-align:center;">Acciones</th>
                     </tr>
                 </thead>
@@ -770,6 +816,15 @@ function renderListaServicios() {
         const st = statusMap[s.status] || statusMap.pending;
         const hora   = s.time ? s.time.substring(0,5) : '--:--';
         const codigo = s.codigo_seguimiento || s.id || '—';
+        const progresoIdx = getProgresoIndex(s.progreso);
+        const progresoLabel = getProgresoLabel(s.progreso);
+
+        // Mini barra de progreso (5 puntos)
+        const minitimeline = PASOS_PROGRESO.map((p, i) => {
+            const cls = i < progresoIdx ? 'mini-step done' : i === progresoIdx ? 'mini-step active' : 'mini-step';
+            return `<span class="${cls}" title="${p.desc}"></span>`;
+        }).join('');
+
         html += `
             <tr>
                 <td><span class="tracking-badge" title="Código de seguimiento">${codigo}</span></td>
@@ -780,7 +835,12 @@ function renderListaServicios() {
                 <td>${s.employee || 'Sin asignar'}</td>
                 <td><span class="service-status ${st.cls}"><i class="${st.icon}"></i>${st.txt}</span></td>
                 <td>
+                    <div class="mini-progress" title="${progresoLabel}">${minitimeline}</div>
+                    <small style="color:var(--gray-500);font-size:11px;">${progresoLabel}</small>
+                </td>
+                <td>
                     <div class="action-buttons" style="justify-content:center;">
+                        ${s.status !== 'completed' ? `<button class="action-btn-icon btn-progreso" data-id="${s.id}" title="Actualizar Progreso" style="color:#0891b2;"><i class="fas fa-tasks"></i></button>` : ''}
                         ${s.status !== 'completed' ? `<button class="action-btn-icon btn-complete" data-id="${s.id}" title="Marcar Completado"><i class="fas fa-check"></i></button>` : ''}
                         <button class="action-btn-icon btn-print" data-id="${s.id}" title="Imprimir Factura" style="color:#7c3aed;"><i class="fas fa-print"></i></button>
                         <button class="action-btn-icon btn-delete" data-id="${s.id}" title="Eliminar"><i class="fas fa-trash"></i></button>
@@ -793,6 +853,12 @@ function renderListaServicios() {
     container.innerHTML = html;
 
     // Wire action buttons
+    container.querySelectorAll('.btn-progreso').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            abrirModalProgreso(id);
+        });
+    });
     container.querySelectorAll('.btn-complete').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const id = e.currentTarget.getAttribute('data-id');
@@ -879,96 +945,324 @@ function printServiceInvoice(serviceId) {
     const s = DataUtils.findServiceById(serviceId);
     if (!s) { UIManager.showNotification('Servicio no encontrado', 'error'); return; }
 
-    const cfg = DataStore.configuracion || {};
-    const tallerData = (() => { try { return JSON.parse(localStorage.getItem('th_taller') || '{}'); } catch(e) { return {}; } })();
-    const tallerNombre = tallerData.nombre || 'Taller Hunter';
-    const tallerTel    = tallerData.telefono || '+1 (809) 555-1234';
+    // ── Datos del taller ─────────────────────────────────────────────────────
+    const tallerData   = (() => { try { return JSON.parse(localStorage.getItem('th_taller') || '{}'); } catch(e) { return {}; } })();
+    const tallerNombre = tallerData.nombre    || 'Taller Hunter';
+    const tallerTel    = tallerData.telefono  || '+1 (809) 555-1234';
     const tallerDir    = tallerData.direccion || 'Av. Principal #123, Santo Domingo';
-    const tallerEmail  = tallerData.email || 'info@tallerhunter.com';
+    const tallerEmail  = tallerData.email     || 'info@tallerhunter.com';
+    const tallerRNC    = tallerData.rnc       || '';
 
-    const statusLabel  = { pending: 'Pendiente', process: 'En Proceso', completed: 'Completado', cancelled: 'Cancelado' };
-    const statusColors = { pending: '#d97706', process: '#2563eb', completed: '#16a34a', cancelled: '#dc2626' };
+    // ── Búsqueda del precio del servicio ────────────────────────────────────
+    // Busca por nombre exacto o por tipo_servicio_id si está disponible
+    const tipoObj = DataStore.tiposServicio.find(t =>
+        t.nombre === s.service ||
+        (s.tipo_servicio_id && String(t.id) === String(s.tipo_servicio_id))
+    );
+    const precioUnitario = parseFloat(tipoObj?.precio ?? tipoObj?.precio_base ?? 0);
+    const cantidad       = 1;
+
+    // ── Cálculo financiero ───────────────────────────────────────────────────
+    const IVA_PCT  = parseFloat(DataStore.configuracion?.iva ?? 18);   // ITBIS RD
+    const subtotal = precioUnitario * cantidad;
+    const impuesto = subtotal * (IVA_PCT / 100);
+    const total    = subtotal + impuesto;
+
+    // Formateador de moneda DOP
+    const fmt = (n) => new Intl.NumberFormat('es-DO', {
+        style:                 'currency',
+        currency:              'DOP',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(n);
+
+    // ── Estado visual ────────────────────────────────────────────────────────
+    const statusLabel  = { pending:'Pendiente', process:'En Proceso', completed:'Completado', cancelled:'Cancelado' };
+    const statusColors = { pending:'#d97706',   process:'#2563eb',    completed:'#16a34a',    cancelled:'#dc2626'  };
     const st            = s.status || 'pending';
     const codigoVisible = s.codigo_seguimiento || s.id || 'N/A';
 
-    const html = `<!DOCTYPE html><html lang="es"><head>
+    // ── Progreso ─────────────────────────────────────────────────────────────
+    const progresoLabels = {
+        recepcion: 'Recepción del vehículo', diagnostico: 'Diagnóstico detallado',
+        reparacion: 'Reparación / Servicio', calidad: 'Control de calidad',
+        entrega: 'Entrega al cliente'
+    };
+    const progresoText = s.progreso ? progresoLabels[s.progreso] || s.progreso : 'Sin iniciar';
+
+    // ── Fila de item ─────────────────────────────────────────────────────────
+    const itemRow = precioUnitario > 0
+        ? `<tr>
+            <td style="padding:10px 8px;">${s.service || 'Servicio general'}</td>
+            <td style="padding:10px 8px;text-align:center;">${cantidad}</td>
+            <td style="padding:10px 8px;text-align:right;">${fmt(precioUnitario)}</td>
+            <td style="padding:10px 8px;text-align:right;font-weight:600;">${fmt(subtotal)}</td>
+           </tr>`
+        : `<tr>
+            <td style="padding:10px 8px;">${s.service || 'Servicio general'}</td>
+            <td style="padding:10px 8px;text-align:center;">1</td>
+            <td style="padding:10px 8px;text-align:right;color:#94a3b8;">—</td>
+            <td style="padding:10px 8px;text-align:right;color:#94a3b8;">—</td>
+           </tr>`;
+
+    // ── Bloque de totales ────────────────────────────────────────────────────
+    const totalesHTML = precioUnitario > 0
+        ? `<tr style="border-top:1px solid #e2e8f0;">
+               <td colspan="3" style="padding:8px;text-align:right;color:#64748b;font-size:12px;">Subtotal</td>
+               <td style="padding:8px;text-align:right;">${fmt(subtotal)}</td>
+           </tr>
+           <tr>
+               <td colspan="3" style="padding:8px;text-align:right;color:#64748b;font-size:12px;">ITBIS (${IVA_PCT}%)</td>
+               <td style="padding:8px;text-align:right;">${fmt(impuesto)}</td>
+           </tr>
+           <tr style="background:#1d4ed8;color:#fff;">
+               <td colspan="3" style="padding:12px 8px;text-align:right;font-weight:700;font-size:14px;letter-spacing:.5px;">TOTAL A PAGAR</td>
+               <td style="padding:12px 8px;text-align:right;font-weight:800;font-size:18px;">${fmt(total)}</td>
+           </tr>`
+        : `<tr style="border-top:1px solid #e2e8f0;">
+               <td colspan="4" style="padding:12px 8px;text-align:center;color:#94a3b8;font-size:12px;">
+                   El precio de este servicio no está configurado en el catálogo.
+               </td>
+           </tr>`;
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
 <meta charset="UTF-8">
-<title>Factura ${codigoVisible}</title>
+<title>Factura ${codigoVisible} — ${tallerNombre}</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a2e; padding: 24px; }
-  .invoice { max-width: 680px; margin: 0 auto; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 3px solid #1d4ed8; }
-  .logo h1 { font-size: 22px; color: #1d4ed8; }
-  .logo p { font-size: 11px; color: #64748b; margin-top: 4px; }
-  .invoice-meta { text-align: right; }
-  .invoice-meta h2 { font-size: 18px; color: #1d4ed8; text-transform: uppercase; letter-spacing: 1px; }
-  .tracking { display: inline-block; background: #dbeafe; color: #1d4ed8; border: 1.5px solid #93c3fd; font-family: monospace; font-size: 15px; font-weight: bold; padding: 6px 14px; border-radius: 6px; margin-top: 6px; }
-  .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; color: #fff; font-weight: bold; font-size: 11px; background: ${statusColors[st] || '#64748b'}; }
-  .section { margin-bottom: 24px; }
-  .section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 12px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .field label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
-  .field span { font-weight: 600; font-size: 13px; }
-  .total-box { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; text-align: right; }
-  .total-box .label { color: #64748b; font-size: 12px; }
-  .total-box .value { font-size: 20px; font-weight: bold; color: #1d4ed8; }
-  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8; }
-  @media print { @page { margin: 1cm; } }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a2e;padding:24px;background:#fff;}
+  .invoice{max-width:700px;margin:0 auto;}
+
+  /* Encabezado */
+  .inv-header{display:flex;justify-content:space-between;align-items:flex-start;
+              margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #1d4ed8;}
+  .inv-logo h1{font-size:22px;color:#1d4ed8;margin-bottom:4px;}
+  .inv-logo p{font-size:11px;color:#64748b;line-height:1.6;}
+  .inv-meta{text-align:right;}
+  .inv-meta h2{font-size:18px;color:#1d4ed8;text-transform:uppercase;letter-spacing:1px;}
+  .tracking{display:inline-block;background:#dbeafe;color:#1d4ed8;border:1.5px solid #93c3fd;
+             font-family:monospace;font-size:14px;font-weight:700;
+             padding:5px 12px;border-radius:6px;margin:6px 0;}
+  .status-pill{display:inline-block;padding:3px 10px;border-radius:20px;color:#fff;
+               font-weight:700;font-size:11px;background:${statusColors[st]||'#64748b'};}
+
+  /* Secciones */
+  .section{margin-bottom:20px;}
+  .section-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;
+                 border-bottom:1px solid #e2e8f0;padding-bottom:5px;margin-bottom:10px;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field label{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px;}
+  .field span{font-weight:600;font-size:13px;}
+
+  /* Tabla de servicios */
+  .items-table{width:100%;border-collapse:collapse;margin-bottom:0;}
+  .items-table thead th{background:#f8fafc;padding:8px;font-size:11px;text-transform:uppercase;
+                         letter-spacing:.5px;color:#64748b;border-bottom:2px solid #e2e8f0;}
+  .items-table tbody tr:nth-child(even){background:#fafafa;}
+  .items-table tbody tr:hover{background:#f1f5f9;}
+  .items-table tfoot td{font-size:13px;}
+
+  /* Caja de progreso */
+  .progress-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;
+                padding:12px 16px;margin-bottom:20px;}
+  .progress-box .pb-label{font-size:10px;text-transform:uppercase;color:#0369a1;letter-spacing:.5px;}
+  .progress-box .pb-value{font-weight:600;color:#0c4a6e;margin-top:2px;}
+
+  /* Caja código */
+  .code-box{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;
+             padding:12px 16px;text-align:center;margin-bottom:20px;}
+  .code-box .cb-label{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
+  .code-box .cb-code{font-family:monospace;font-size:18px;font-weight:800;color:#1d4ed8;margin:4px 0;}
+  .code-box .cb-note{font-size:11px;color:#94a3b8;}
+
+  /* Pie */
+  .inv-footer{margin-top:28px;padding-top:14px;border-top:1px solid #e2e8f0;
+              text-align:center;font-size:11px;color:#94a3b8;line-height:1.8;}
+
+  @media print{
+    body{padding:0;}
+    @page{margin:1cm;}
+    .items-table tfoot tr:last-child td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
 </style>
-</head><body>
+</head>
+<body>
 <div class="invoice">
-  <div class="header">
-    <div class="logo">
-      <h1>🔧 ${tallerNombre}</h1>
+
+  <!-- ENCABEZADO -->
+  <div class="inv-header">
+    <div class="inv-logo">
+      <h1>&#128295; ${tallerNombre}</h1>
       <p>${tallerDir}</p>
       <p>${tallerTel} &bull; ${tallerEmail}</p>
+      ${tallerRNC ? `<p>RNC: ${tallerRNC}</p>` : ''}
     </div>
-    <div class="invoice-meta">
+    <div class="inv-meta">
       <h2>Factura de Servicio</h2>
       <div class="tracking">${codigoVisible}</div><br>
-      <small style="color:#64748b;">${DataUtils.formatDate(s.date)} &bull; ${s.time ? s.time.substring(0,5) : '--:--'}</small><br>
+      <small style="color:#64748b;">
+        ${DataUtils.formatDate(s.date)} &bull; ${s.time ? s.time.substring(0,5) : '--:--'}
+      </small><br>
       <div class="status-pill" style="margin-top:6px;">${statusLabel[st] || st}</div>
     </div>
   </div>
 
+  <!-- CLIENTE -->
   <div class="section">
-    <h3>Información del Cliente</h3>
+    <div class="section-title">Información del Cliente</div>
     <div class="grid-2">
       <div class="field"><label>Propietario</label><span>${s.owner || '—'}</span></div>
       <div class="field"><label>Teléfono</label><span>${s.phone || '—'}</span></div>
     </div>
   </div>
 
+  <!-- VEHÍCULO Y TÉCNICO -->
   <div class="section">
-    <h3>Información del Vehículo</h3>
+    <div class="section-title">Información del Vehículo y Servicio</div>
     <div class="grid-2">
-      <div class="field"><label>Placa</label><span>${s.vehicle || '—'}</span></div>
-      <div class="field"><label>Servicio Realizado</label><span>${s.service || '—'}</span></div>
+      <div class="field"><label>Placa del Vehículo</label><span>${s.vehicle || '—'}</span></div>
       <div class="field"><label>Técnico Asignado</label><span>${s.employee || 'Sin asignar'}</span></div>
       <div class="field"><label>Fecha de Ingreso</label><span>${DataUtils.formatDate(s.date)}</span></div>
+      <div class="field"><label>Hora de Ingreso</label><span>${s.time ? s.time.substring(0,5) : '—'}</span></div>
     </div>
-    ${s.notes ? `<div style="margin-top:12px;"><label style="font-size:10px;color:#94a3b8;text-transform:uppercase;">Observaciones</label><p style="margin-top:4px;background:#f8fafc;padding:10px;border-radius:6px;font-size:12px;">${s.notes}</p></div>` : ''}
+    ${s.notes ? `
+    <div style="margin-top:10px;background:#f8fafc;padding:10px;border-radius:6px;border-left:3px solid #cbd5e1;">
+      <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Observaciones</div>
+      <div style="font-size:12px;">${s.notes}</div>
+    </div>` : ''}
   </div>
 
-  <div class="total-box">
-    <div class="label">Código de Seguimiento</div>
-    <div class="value" style="font-family:monospace;font-size:16px;">${codigoVisible}</div>
-    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Presenta este código para consultar el estado de tu vehículo</div>
+  <!-- PROGRESO -->
+  ${s.progreso ? `
+  <div class="progress-box">
+    <div class="pb-label">Estado de Progreso</div>
+    <div class="pb-value">&#9654; ${progresoText}</div>
+  </div>` : ''}
+
+  <!-- DETALLE DE SERVICIOS Y TOTALES -->
+  <div class="section">
+    <div class="section-title">Detalle del Servicio</div>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Descripción</th>
+          <th style="text-align:center;width:60px;">Qty</th>
+          <th style="text-align:right;width:130px;">Precio Unit.</th>
+          <th style="text-align:right;width:130px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRow}
+      </tbody>
+      <tfoot>
+        ${totalesHTML}
+      </tfoot>
+    </table>
   </div>
 
-  <div class="footer">
-    <p>Gracias por confiar en ${tallerNombre} &bull; ${tallerTel}</p>
-    <p style="margin-top:4px;">${tallerDir}</p>
-    <p style="margin-top:4px;">Factura generada el ${new Date().toLocaleDateString('es-DO', {day:'2-digit',month:'long',year:'numeric'})}</p>
+  <!-- CÓDIGO DE SEGUIMIENTO -->
+  <div class="code-box">
+    <div class="cb-label">Código de Seguimiento</div>
+    <div class="cb-code">${codigoVisible}</div>
+    <div class="cb-note">Presenta este código en el taller para consultar el estado de tu vehículo</div>
   </div>
+
+  <!-- PIE -->
+  <div class="inv-footer">
+    <p><strong>Gracias por confiar en ${tallerNombre}</strong></p>
+    <p>${tallerTel} &bull; ${tallerEmail} &bull; ${tallerDir}</p>
+    <p>Factura generada el ${new Date().toLocaleDateString('es-DO', {day:'2-digit',month:'long',year:'numeric'})}</p>
+  </div>
+
 </div>
 <script>window.onload = () => window.print();<\/script>
 </body></html>`;
 
-    const win = window.open('', '_blank', 'width=750,height=900');
+    const win = window.open('', '_blank', 'width=780,height=960');
     if (win) {
         win.document.write(html);
         win.document.close();
+    }
+}
+
+// ===== MODAL DE PROGRESO =====
+
+function abrirModalProgreso(servicioId) {
+    const servicio = DataUtils.findServiceById(servicioId);
+    if (!servicio) return;
+
+    const modal = document.getElementById('progresoModal');
+    if (!modal) return;
+
+    document.getElementById('progresoModalTitle').textContent =
+        `Progreso — ${servicio.vehicle} (${servicio.owner})`;
+    document.getElementById('progresoObservaciones').value = '';
+
+    const pasoActualIdx = getProgresoIndex(servicio.progreso);
+
+    // Renderizar los pasos del timeline
+    const container = document.getElementById('progresoStepsContainer');
+    container.innerHTML = PASOS_PROGRESO.map((paso, i) => {
+        const isDone   = i < pasoActualIdx;
+        const isActive = i === pasoActualIdx;
+        return `
+        <div class="progreso-step ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}"
+             data-key="${paso.key}" data-idx="${i}" style="cursor:pointer;">
+            <div class="progreso-circle">
+                <i class="${isDone ? 'fas fa-check' : paso.icon}"></i>
+            </div>
+            <div class="progreso-info">
+                <div class="progreso-label">${paso.label}</div>
+                <div class="progreso-desc">${paso.desc}</div>
+            </div>
+            ${i < PASOS_PROGRESO.length - 1 ? '<div class="progreso-connector"></div>' : ''}
+        </div>`;
+    }).join('');
+
+    // Click en paso para seleccionarlo
+    container.querySelectorAll('.progreso-step').forEach(el => {
+        el.addEventListener('click', () => {
+            container.querySelectorAll('.progreso-step').forEach(s => s.classList.remove('selecting'));
+            el.classList.add('selecting');
+            modal.dataset.selectedKey = el.dataset.key;
+        });
+    });
+
+    modal.dataset.servicioId  = servicioId;
+    modal.dataset.selectedKey = servicio.progreso || '';
+    modal.style.display = 'flex';
+}
+
+function cerrarModalProgreso() {
+    const modal = document.getElementById('progresoModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function guardarProgreso() {
+    const modal      = document.getElementById('progresoModal');
+    const servicioId = modal.dataset.servicioId;
+    const pasoKey    = modal.dataset.selectedKey;
+
+    if (!pasoKey) {
+        UIManager.showNotification('Selecciona un paso de progreso', 'warning');
+        return;
+    }
+
+    const obs = document.getElementById('progresoObservaciones').value.trim();
+    const btn = document.getElementById('saveProgresoBtn');
+    btn.disabled = true;
+
+    try {
+        await ServiceManager.updateProgreso(servicioId, pasoKey, obs);
+        cerrarModalProgreso();
+        renderListaServicios();
+        actualizarEstadisticas();
+        UIManager.showNotification('Progreso actualizado correctamente', 'success');
+    } catch (e) {
+        UIManager.showNotification('Error actualizando progreso', 'error');
+    } finally {
+        btn.disabled = false;
     }
 }
