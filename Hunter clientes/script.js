@@ -55,43 +55,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function buildTimeline(servicio) {
-        const estado = servicio.estado || 'Pendiente';
+        // Usar estadoVehiculo (columna nueva) si existe, sino derivar del estado general
+        const estadoVehiculo = servicio.estadoVehiculo || servicio.progreso || null;
+        const estado         = servicio.estado || 'Pendiente';
 
-        const done = (s) =>
-            s === 'Completado' || s === 'completado';
-
-        return [
-            {
-                title: 'Recepción del vehículo',
-                description: 'Vehículo recibido en el taller. Diagnóstico inicial realizado.',
-                done: true,
-                date: servicio.fecha
-            },
-            {
-                title: 'Diagnóstico detallado',
-                description: `Servicio requerido: ${servicio.tipo_servicio || 'Por determinar'}`,
-                done: estado !== 'Pendiente',
-                date: servicio.fecha
-            },
-            {
-                title: 'Reparación / Servicio',
-                description: servicio.notas || 'En proceso de atención.',
-                done: done(estado),
-                date: null
-            },
-            {
-                title: 'Control de calidad',
-                description: 'Verificación final de todos los sistemas.',
-                done: done(estado),
-                date: null
-            },
-            {
-                title: 'Entrega al cliente',
-                description: 'Limpieza final y preparación para entrega.',
-                done: done(estado),
-                date: null
-            },
+        const PASOS = [
+            { key: 'recepcion',   title: 'Recepción del vehículo',   desc: 'Vehículo recibido en el taller. Diagnóstico inicial realizado.' },
+            { key: 'diagnostico', title: 'Diagnóstico detallado',     desc: `Servicio requerido: ${servicio.tipo_servicio || 'Por determinar'}` },
+            { key: 'reparacion',  title: 'Reparación / Servicio',     desc: servicio.notas || 'En proceso de atención.' },
+            { key: 'calidad',     title: 'Control de calidad',         desc: 'Verificación final de todos los sistemas.' },
+            { key: 'entrega',     title: 'Entrega al cliente',         desc: 'Limpieza final y preparación para entrega.' }
         ];
+
+        // Índice del paso actual
+        let pasoActualIdx = -1;
+        if (estadoVehiculo) {
+            pasoActualIdx = PASOS.findIndex(p => p.key === estadoVehiculo);
+        } else {
+            // Derivar índice desde el estado general
+            if (estado === 'Completado' || estado === 'completado') pasoActualIdx = 4;
+            else if (estado === 'En Proceso' || estado === 'En proceso') pasoActualIdx = 1;
+            else pasoActualIdx = 0; // Pendiente = recepción
+        }
+
+        return PASOS.map((paso, i) => ({
+            title:       paso.title,
+            description: paso.desc,
+            done:        i <= pasoActualIdx,
+            active:      i === pasoActualIdx,
+            date:        i === 0 ? servicio.fecha : null
+        }));
     }
 
     function formatDate(dateString) {
@@ -130,8 +123,10 @@ document.addEventListener('DOMContentLoaded', function() {
         resultPlaceholder.style.display = 'none';
         statusDetails.style.display = 'block';
 
-        const estadoInfo = mapearEstado(servicio.estado);
-        const steps = buildTimeline(servicio);
+        // estadoVehiculo tiene prioridad sobre el estado general
+        const estadoVehiculo = servicio.estadoVehiculo || servicio.progreso || null;
+        const estadoInfo     = mapearEstado(servicio.estado);
+        const steps          = buildTimeline(servicio);
 
         const vehiculoDesc = [
             servicio.modelo,
@@ -140,8 +135,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const stepsHTML = steps.map(step => `
             <div class="status-step">
-                <div class="step-icon ${step.done ? 'active' : ''}">
-                    <i class="fas fa-${step.done ? 'check' : 'clock'}"></i>
+                <div class="step-icon ${step.done ? 'active' : ''} ${step.active ? 'current' : ''}">
+                    <i class="fas fa-${step.done ? 'check' : step.active ? 'spinner fa-spin' : 'clock'}"></i>
                 </div>
 
                 <div class="step-content">
@@ -156,6 +151,16 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `).join('');
 
+        // Etiqueta del paso actual de estadoVehiculo
+        const pasoLabels = {
+            recepcion:   'Recepción del vehículo',
+            diagnostico: 'Diagnóstico detallado',
+            reparacion:  'Reparación / Servicio',
+            calidad:     'Control de calidad',
+            entrega:     'Entrega al cliente'
+        };
+        const pasoActualLabel = estadoVehiculo ? (pasoLabels[estadoVehiculo] || estadoVehiculo) : null;
+
         statusDetails.innerHTML = `
             <div class="vehicle-info">
                 <h4>Información del Servicio</h4>
@@ -168,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         padding:2px 8px;
                         border-radius:4px;
                     ">
-                        ${servicio.id}
+                        ${servicio.codigo_seguimiento || servicio.id}
                     </span>
                 </p>
 
@@ -202,6 +207,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     </span>
                 </p>
 
+                ${pasoActualLabel ? `
+                <p>
+                    <strong>Etapa actual:</strong>
+                    <span style="font-weight:600;color:#0369a1;">${pasoActualLabel}</span>
+                </p>` : ''}
+
                 <p><strong>Progreso:</strong></p>
 
                 <div class="progress-bar">
@@ -213,8 +224,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
-                ${servicio.notas
-                    ? `<p><strong>Observaciones:</strong> ${servicio.notas}</p>`
+                ${(servicio.observaciones || servicio.notas)
+                    ? `<p><strong>Observaciones:</strong> ${servicio.observaciones || servicio.notas}</p>`
                     : ''
                 }
             </div>
@@ -264,6 +275,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 .status-timeline {
                     margin-top:1.5rem;
+                }
+
+                .step-icon.current {
+                    border-color: #2563eb;
+                    background: #dbeafe;
+                    color: #1d4ed8;
                 }
             `;
 

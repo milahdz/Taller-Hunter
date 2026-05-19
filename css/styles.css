@@ -973,6 +973,27 @@ textarea.form-control      { resize: vertical; min-height: 88px; }
 
 #infoGuardado { border-left: 4px solid var(--primary); background: var(--slate-50); }
 
+/* Mobile Header & Overlay Defaults */
+.mobile-header {
+  display: none;
+}
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.6);
+  backdrop-filter: blur(4px);
+  z-index: 150;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.sidebar-overlay.active {
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */
@@ -987,20 +1008,143 @@ textarea.form-control      { resize: vertical; min-height: 88px; }
 }
 
 @media (max-width: 768px) {
+  /* Show Mobile Header */
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    background: var(--sidebar-bg);
+    color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+  }
+  .mobile-menu-toggle {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem;
+  }
+  .mobile-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.15rem;
+  }
+  .mobile-logo i {
+    color: var(--blue-500);
+  }
+
+  /* Off-canvas sidebar slider */
   .container { flex-direction: column; }
-  .sidebar { width: 100%; min-width: unset; height: auto; position: relative; }
-  .main-content { padding: 1rem; }
-  .header { flex-direction: column; gap: 0.75rem; align-items: flex-start; }
-  .header-buttons { width: 100%; }
-  .stats-container { grid-template-columns: repeat(2, 1fr); }
-  .calendar-container { grid-template-columns: repeat(3, 1fr); }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -260px; /* Hidden off-screen */
+    width: 256px;
+    min-width: 256px;
+    height: 100vh;
+    z-index: 200;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .sidebar.active {
+    left: 0;
+  }
+  .main-content { padding: 1.25rem 1rem; }
+  
+  /* Page headers stack */
+  .header {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+  .header h2 {
+    font-size: 1.35rem;
+  }
+  .header-buttons {
+    width: 100%;
+  }
+  .header-buttons .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  /* Content headers stack */
+  .content-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+  }
+  .content-header > div {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 0.75rem !important;
+  }
+  .view-options {
+    width: 100%;
+    display: flex;
+  }
+  .view-btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  /* Stats adaptation */
+  .stats-container { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+  .stat-card { padding: 1rem; }
+  
+  /* Prevent calendar squishing with horizontal scrolling */
+  .view-content {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  #calendarView .calendar-container {
+    min-width: 750px;
+    padding: 0.5rem;
+  }
+  #weekView .calendar-container {
+    min-width: 600px;
+    padding: 0.5rem;
+  }
+  
+  /* Modals */
+  .modal-content {
+    max-height: 90vh;
+  }
+}
+
+@media (max-width: 576px) {
+  /* Collapse inline-style grid columns */
+  div[style*="grid-template-columns"],
+  div[style*="display:grid"] {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
 }
 
 @media (max-width: 480px) {
-  .stats-container { grid-template-columns: 1fr 1fr; }
+  .stats-container { grid-template-columns: 1fr; }
   .card-grid { grid-template-columns: 1fr; }
-  .calendar-container { grid-template-columns: 1fr; }
-  .tabs { flex-wrap: wrap; }
+  .tabs { flex-wrap: wrap; display: flex; gap: 0.25rem; }
+  .tab {
+    flex: 1;
+    min-width: calc(50% - 0.25rem);
+    text-align: center;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.8rem;
+  }
 }
 
 /* ============================================================
@@ -1350,8 +1494,10 @@ textarea.form-control      { resize: vertical; min-height: 88px; }
     border: 1.5px solid var(--border-color, #e2e8f0);
     border-radius: 10px;
     padding: 10px 16px;
-    margin-bottom: 16px;
+    margin: 0 auto 16px auto;
     transition: border-color 0.2s;
+    max-width: 100%;
+    width: 95%;
 }
 .search-bar-wrapper:focus-within {
     border-color: var(--primary, #2563eb);

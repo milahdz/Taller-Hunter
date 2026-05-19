@@ -423,8 +423,13 @@ const UIManager = {
     },
 
     renderConfigPerfil: (container) => {
-        const savedName  = localStorage.getItem('th_admin_name')  || 'Administrador';
-        const savedEmail = localStorage.getItem('th_admin_email') || '';
+        let savedName = 'Administrador';
+        let savedEmail = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('tallerhunter_user') || '{}');
+            savedName = userData.nombre || localStorage.getItem('th_admin_name') || 'Administrador';
+            savedEmail = userData.email || localStorage.getItem('th_admin_email') || '';
+        } catch (e) {}
         const isDark     = document.documentElement.getAttribute('data-theme') === 'dark';
         container.innerHTML = `
         <div class="config-card">

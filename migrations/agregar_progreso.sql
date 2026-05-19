@@ -1,5 +1,5 @@
 -- ============================================================
--- MIGRACIÓN: Sistema de Progreso del Vehículo
+-- MIGRACIÓN: Sistema de Estado del Vehículo (estadoVehiculo)
 --
 -- INSTRUCCIONES:
 --   1. Abre Supabase → SQL Editor
@@ -9,11 +9,34 @@
 
 
 -- ─────────────────────────────────────────────────────────────
--- BLOQUE 1: Columna "progreso" en registro_servicio_vehiculo
+-- BLOQUE 1: Columna "estadoVehiculo" en registro_servicio_vehiculo
+--           (reemplaza a la anterior columna "progreso")
 -- ─────────────────────────────────────────────────────────────
+
+-- 1a. Si ya existe la columna "progreso", migrar su contenido y eliminarla
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'registro_servicio_vehiculo'
+          AND column_name = 'progreso'
+    ) THEN
+        -- Copiar datos existentes
+        ALTER TABLE registro_servicio_vehiculo
+            ADD COLUMN IF NOT EXISTS "estadoVehiculo" VARCHAR(20) DEFAULT 'recepcion';
+        UPDATE registro_servicio_vehiculo
+            SET "estadoVehiculo" = progreso
+            WHERE progreso IS NOT NULL;
+        -- Eliminar columna antigua
+        ALTER TABLE registro_servicio_vehiculo DROP COLUMN progreso;
+    END IF;
+END;
+$$;
+
+-- 1b. Agregar la columna si no existía antes (caso de base limpia)
 ALTER TABLE registro_servicio_vehiculo
-ADD COLUMN IF NOT EXISTS progreso TEXT
-    CHECK (progreso IN (
+    ADD COLUMN IF NOT EXISTS "estadoVehiculo" VARCHAR(20) DEFAULT 'recepcion'
+    CHECK ("estadoVehiculo" IN (
         'recepcion',
         'diagnostico',
         'reparacion',
@@ -21,22 +44,31 @@ ADD COLUMN IF NOT EXISTS progreso TEXT
         'entrega'
     ));
 
+-- 1c. Agregar columna observaciones si no existe
+ALTER TABLE registro_servicio_vehiculo
+    ADD COLUMN IF NOT EXISTS observaciones TEXT;
+
 -- ─────────────────────────────────────────────────────────────
 -- BLOQUE 2: Tabla historial_progreso
+-- NOTA: servicio_id es TEXT porque el id de registro_servicio_vehiculo es TEXT
 -- ─────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS historial_progreso (
-    id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    servicio_id   UUID        NOT NULL
-                              REFERENCES registro_servicio_vehiculo(id)
-                              ON DELETE CASCADE,
-    progreso      TEXT        NOT NULL
-                              CHECK (progreso IN (
-                                  'recepcion','diagnostico',
-                                  'reparacion','calidad','entrega'
-                              )),
-    observaciones TEXT,
-    usuario       TEXT,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+
+-- Si ya existía con el tipo incorrecto (UUID), la eliminamos y recreamos
+DROP TABLE IF EXISTS historial_progreso;
+
+CREATE TABLE historial_progreso (
+    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    servicio_id      TEXT        NOT NULL
+                                 REFERENCES registro_servicio_vehiculo(id)
+                                 ON DELETE CASCADE,
+    "estadoVehiculo" VARCHAR(20) NOT NULL
+                                 CHECK ("estadoVehiculo" IN (
+                                     'recepcion','diagnostico',
+                                     'reparacion','calidad','entrega'
+                                 )),
+    observaciones    TEXT,
+    usuario          TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Índice para búsquedas por servicio
@@ -84,6 +116,6 @@ UPDATE vehiculos SET estado = 'Vendido'  WHERE lower(estado) = 'vendido';
 -- SELECT column_name, data_type
 -- FROM information_schema.columns
 -- WHERE table_name = 'registro_servicio_vehiculo'
---   AND column_name = 'progreso';
+--   AND column_name IN ('estadoVehiculo', 'observaciones');
 --
 -- SELECT * FROM historial_progreso LIMIT 1;

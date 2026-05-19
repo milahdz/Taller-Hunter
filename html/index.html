@@ -22,6 +22,17 @@
     <p class="loading-text">Cargando sistema...</p>
 </div>
 
+<!-- Mobile Header -->
+<div class="mobile-header">
+    <button id="mobileMenuBtn" class="mobile-menu-toggle" aria-label="Abrir menú">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="mobile-logo">
+        <i class="fas fa-tools logo-icon"></i>
+        <span>Taller Hunter</span>
+    </div>
+</div>
+
 <div class="container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -83,9 +94,6 @@
                     <button class="btn btn-outline" id="printBtn" style="display: none;">
                         <i class="fas fa-print"></i> Imprimir
                     </button>
-                    <button class="btn btn-primary" id="addVehicleBtn">
-                        <i class="fas fa-plus"></i> Agendar Vehículo
-                    </button>
                 </div>
             </div>
             
@@ -135,10 +143,15 @@
                 <div class="content-area" id="agendaContent">
                     <div class="content-header">
                         <h3 id="viewTitle">Lista de Servicios</h3>
-                        <div class="view-options">
-                            <button class="view-btn active" data-view="list">Lista</button>
-                            <button class="view-btn" data-view="week">Semana</button>
-                            <button class="view-btn" data-view="calendar">Calendario</button>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <div class="view-options">
+                                <button class="view-btn active" data-view="list">Lista</button>
+                                <button class="view-btn" data-view="week">Semana</button>
+                                <button class="view-btn" data-view="calendar">Calendario</button>
+                            </div>
+                            <button class="btn btn-primary" id="addVehicleBtn">
+                                <i class="fas fa-plus"></i> Agendar Vehículo
+                            </button>
                         </div>
                     </div>
                     
@@ -517,13 +530,14 @@
         </div>
     </div>
 
+<script src="../js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
     // UMD build exposes window.supabase = { createClient, ... }
     // Overwrite it immediately with the client instance so db.js can use supabase.from() synchronously
     window.supabase = window.supabase.createClient(
-        'https://nthowcrcdsgiaekedvzr.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50aG93Y3JjZHNnaWFla2VkdnpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTI3MjIsImV4cCI6MjA4MDY4ODcyMn0.BnqOeVPlBN52hxZWv88rohprQszE7ynnWrCpydDTYhY'
+        window.SUPABASE_URL || '',
+        window.SUPABASE_KEY || ''
     );
     console.log('✅ Supabase conectado');
 </script>

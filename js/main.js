@@ -117,6 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedTheme = localStorage.getItem('th_theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
 
+    let userRole = 'Sistema';
     // Cargar nombre real del usuario autenticado
     try {
         const userData = JSON.parse(sessionRaw);
@@ -127,6 +128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (avatarEl) avatarEl.textContent = displayName.substring(0, 2).toUpperCase();
         const roleEl = document.querySelector('.user-role');
         if (roleEl) roleEl.textContent = userData.rol || 'Sistema';
+        userRole = userData.rol || 'Sistema';
     } catch (e) {
         localStorage.removeItem('tallerhunter_user');
         window.location.href = '../login/index.html';
@@ -134,6 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     setupConfirmModal();
+    aplicarPermisosRol(userRole);
     await initApp();
     setupEventListeners();
     setupModalListeners();
@@ -181,7 +184,8 @@ async function cargarDatosReales() {
                 employee:   s.empleado      || (eObj ? eObj.nombre  : 'Sin asignar'),
                 status:     normalizeStatus(s.estado),
                 notes:      s.notas || '',
-                progreso:   s.progreso || null
+                estadoVehiculo: s.estadoVehiculo || s.progreso || null,
+                observaciones:  s.observaciones  || null
             };
         });
 
@@ -247,6 +251,26 @@ async function cargarDatosReales() {
 // ===== NAVEGACIÓN Y EVENTOS ESTÁTICOS =====
 
 function setupEventListeners() {
+    // Menú móvil responsive
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.querySelector('.sidebar');
+    let overlay = document.querySelector('.sidebar-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
+    }
+    if (mobileBtn && sidebar && overlay) {
+        mobileBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        });
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+        });
+    }
+
     // Navegación
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
@@ -254,6 +278,13 @@ function setupEventListeners() {
             const page = item.getAttribute('data-page');
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             item.classList.add('active');
+            
+            // Cerrar menú móvil al navegar
+            if (sidebar && overlay) {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+            
             cargarPagina(page);
         });
     });
@@ -560,14 +591,64 @@ async function guardarEmpleado() {
 
 // ===== NAVEGACIÓN DE PÁGINAS =====
 
+function aplicarPermisosRol(rol) {
+    const roleKey = (rol || '').toLowerCase().trim();
+    const permisosDefecto = ['agenda']; // Por seguridad, rol desconocido solo ve Agenda
+    
+    const PERMISOS_ROLES = {
+        admin:         ['agenda', 'vehiculos', 'clientes', 'servicios', 'reportes', 'configuracion'],
+        administrador: ['agenda', 'vehiculos', 'clientes', 'servicios', 'reportes', 'configuracion'],
+        recepcion:     ['agenda', 'vehiculos', 'clientes', 'servicios'],
+        mecanico:      ['agenda', 'vehiculos'],
+        empleado:      ['agenda', 'vehiculos', 'clientes']
+    };
+
+    const paginasPermitidas = PERMISOS_ROLES[roleKey] || permisosDefecto;
+    AppState.allowedPages = paginasPermitidas;
+
+    // Ocultar/Mostrar items de navegación en el sidebar
+    document.querySelectorAll('.nav-item').forEach(item => {
+        const page = item.getAttribute('data-page');
+        if (paginasPermitidas.includes(page)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
 function cargarPagina(pagina) {
+    // Si hay permisos configurados y la página no está permitida, abortar
+    if (AppState.allowedPages && !AppState.allowedPages.includes(pagina)) {
+        console.warn(`Acceso denegado a la página: ${pagina}`);
+        // Redirigir a la primera página permitida
+        if (AppState.allowedPages.length > 0) {
+            cargarPagina(AppState.allowedPages[0]);
+        }
+        return;
+    }
+
     document.querySelectorAll('#dynamicContent > .content-area').forEach(el => {
         el.style.display = 'none';
     });
     AppState.currentPage = pagina;
 
-    const statsContainer = document.getElementById('statsContainer');
-    const tabsContainer  = document.getElementById('tabsContainer');
+    const statsContainer  = document.getElementById('statsContainer');
+    const tabsContainer   = document.getElementById('tabsContainer');
+    const pageTitle       = document.getElementById('pageTitle');
+
+    // Cambiar dinámicamente el título principal
+    if (pageTitle) {
+        const titles = {
+            'agenda':        'Sistema de Gestión de Agenda',
+            'vehiculos':     'Gestión de Vehículos',
+            'clientes':      'Gestión de Clientes',
+            'servicios':     'Tipos de Servicios',
+            'reportes':      'Reportes y Estadísticas',
+            'configuracion': 'Configuración del Sistema'
+        };
+        pageTitle.textContent = titles[pagina] || 'Sistema de Gestión';
+    }
 
     if (pagina === 'agenda') {
         document.getElementById('agendaContent').style.display = 'block';
@@ -682,27 +763,64 @@ function renderConfiguracion() {
     UIManager.renderConfiguracion(tipo, document.getElementById('configuracionArea'));
 
     if (tipo === 'perfil') {
-        document.getElementById('savePerfilBtn')?.addEventListener('click', () => {
+        document.getElementById('savePerfilBtn')?.addEventListener('click', async () => {
             const name  = document.getElementById('cfgNombre')?.value.trim();
             const email = document.getElementById('cfgEmail')?.value.trim();
             if (!name) { UIManager.showNotification('El nombre no puede estar vacío', 'error'); return; }
-            localStorage.setItem('th_admin_name', name);
-            localStorage.setItem('th_admin_email', email);
-            const nameEl   = document.querySelector('.user-name');
-            const avatarEl = document.querySelector('.user-avatar');
-            if (nameEl)   nameEl.textContent   = name;
-            if (avatarEl) avatarEl.textContent  = name.substring(0,2).toUpperCase();
-            UIManager.showNotification('Perfil actualizado correctamente', 'success');
+            
+            try {
+                const sessionRaw = localStorage.getItem('tallerhunter_user');
+                if (sessionRaw) {
+                    const userData = JSON.parse(sessionRaw);
+                    if (window.supabase) {
+                        const { error } = await window.supabase
+                            .from('usuarios')
+                            .update({ nombre: name, email: email })
+                            .eq('id', userData.id);
+                        if (error) throw error;
+                    }
+                    userData.nombre = name;
+                    userData.email = email;
+                    localStorage.setItem('tallerhunter_user', JSON.stringify(userData));
+                }
+                localStorage.setItem('th_admin_name', name);
+                localStorage.setItem('th_admin_email', email);
+                const nameEl   = document.querySelector('.user-name');
+                const avatarEl = document.querySelector('.user-avatar');
+                if (nameEl)   nameEl.textContent   = name;
+                if (avatarEl) avatarEl.textContent  = name.substring(0,2).toUpperCase();
+                UIManager.showNotification('Perfil actualizado correctamente', 'success');
+            } catch (err) {
+                console.error('Error al guardar perfil:', err);
+                UIManager.showNotification('Error al guardar en base de datos: ' + err.message, 'error');
+            }
         });
 
-        document.getElementById('savePasswordBtn')?.addEventListener('click', () => {
+        document.getElementById('savePasswordBtn')?.addEventListener('click', async () => {
             const nueva     = document.getElementById('cfgPassNueva')?.value;
             const confirmar = document.getElementById('cfgPassConfirmar')?.value;
             if (!nueva || nueva.length < 6) { UIManager.showNotification('La contraseña debe tener al menos 6 caracteres', 'error'); return; }
             if (nueva !== confirmar)         { UIManager.showNotification('Las contraseñas no coinciden', 'error'); return; }
-            localStorage.setItem('th_admin_pass', nueva);
-            ['cfgPassActual','cfgPassNueva','cfgPassConfirmar'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-            UIManager.showNotification('Contraseña actualizada correctamente', 'success');
+            
+            try {
+                const sessionRaw = localStorage.getItem('tallerhunter_user');
+                if (sessionRaw) {
+                    const userData = JSON.parse(sessionRaw);
+                    if (window.supabase) {
+                        const { error } = await window.supabase
+                            .from('auth_usuarios')
+                            .update({ password_hash: nueva })
+                            .eq('usuario_id', userData.id);
+                        if (error) throw error;
+                    }
+                }
+                localStorage.setItem('th_admin_pass', nueva);
+                ['cfgPassActual','cfgPassNueva','cfgPassConfirmar'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                UIManager.showNotification('Contraseña actualizada correctamente', 'success');
+            } catch (err) {
+                console.error('Error al cambiar contraseña:', err);
+                UIManager.showNotification('Error al cambiar contraseña: ' + err.message, 'error');
+            }
         });
 
         document.getElementById('themeToggle')?.addEventListener('change', (e) => {
@@ -816,8 +934,8 @@ function renderListaServicios() {
         const st = statusMap[s.status] || statusMap.pending;
         const hora   = s.time ? s.time.substring(0,5) : '--:--';
         const codigo = s.codigo_seguimiento || s.id || '—';
-        const progresoIdx = getProgresoIndex(s.progreso);
-        const progresoLabel = getProgresoLabel(s.progreso);
+        const progresoIdx = getProgresoIndex(s.estadoVehiculo);
+        const progresoLabel = getProgresoLabel(s.estadoVehiculo);
 
         // Mini barra de progreso (5 puntos)
         const minitimeline = PASOS_PROGRESO.map((p, i) => {
@@ -988,7 +1106,7 @@ function printServiceInvoice(serviceId) {
         reparacion: 'Reparación / Servicio', calidad: 'Control de calidad',
         entrega: 'Entrega al cliente'
     };
-    const progresoText = s.progreso ? progresoLabels[s.progreso] || s.progreso : 'Sin iniciar';
+    const progresoText = s.estadoVehiculo ? progresoLabels[s.estadoVehiculo] || s.estadoVehiculo : 'Sin iniciar';
 
     // ── Fila de item ─────────────────────────────────────────────────────────
     const itemRow = precioUnitario > 0
@@ -1135,7 +1253,7 @@ function printServiceInvoice(serviceId) {
   </div>
 
   <!-- PROGRESO -->
-  ${s.progreso ? `
+  ${s.estadoVehiculo ? `
   <div class="progress-box">
     <div class="pb-label">Estado de Progreso</div>
     <div class="pb-value">&#9654; ${progresoText}</div>
@@ -1200,7 +1318,7 @@ function abrirModalProgreso(servicioId) {
         `Progreso — ${servicio.vehicle} (${servicio.owner})`;
     document.getElementById('progresoObservaciones').value = '';
 
-    const pasoActualIdx = getProgresoIndex(servicio.progreso);
+    const pasoActualIdx = getProgresoIndex(servicio.estadoVehiculo);
 
     // Renderizar los pasos del timeline
     const container = document.getElementById('progresoStepsContainer');
@@ -1231,7 +1349,7 @@ function abrirModalProgreso(servicioId) {
     });
 
     modal.dataset.servicioId  = servicioId;
-    modal.dataset.selectedKey = servicio.progreso || '';
+    modal.dataset.selectedKey = servicio.estadoVehiculo || '';
     modal.style.display = 'flex';
 }
 

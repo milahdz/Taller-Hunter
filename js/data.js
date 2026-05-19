@@ -13,7 +13,8 @@ const AppState = {
     searchAgenda: '',
     searchVehiculos: '',
     searchClientes: '',
-    searchServicios: ''
+    searchServicios: '',
+    allowedPages: null
 };
 
 // Datos de la aplicación

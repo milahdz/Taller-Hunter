@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/config.js"></script>
 </head>
 <body>
     <div class="login-container">
@@ -111,12 +112,9 @@
     </div>
 
     <script>
-        // === CONFIGURACIÓN SUPABASE - UNA SOLA DECLARACIÓN ===
-        const SUPABASE_URL = 'https://nthowcrcdsgiaekedvzr.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50aG93Y3JjZHNnaWFla2VkdnpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTI3MjIsImV4cCI6MjA4MDY4ODcyMn0.BnqOeVPlBN52hxZWv88rohprQszE7ynnWrCpydDTYhY';
-
+        // === CONFIGURACIÓN SUPABASE ===
         // Inicializar Supabase UNA VEZ
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = window.supabase.createClient(window.SUPABASE_URL || '', window.SUPABASE_KEY || '');
         console.log('✅ Supabase inicializado');
         
         // Mostrar mensaje

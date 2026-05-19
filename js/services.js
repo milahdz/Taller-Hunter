@@ -79,26 +79,15 @@ const ServiceManager = {
     async completeService(id) { return this.changeServiceStatus(id, 'Completado'); },
     async startService(id)    { return this.changeServiceStatus(id, 'En Proceso'); },
 
-    async updateProgreso(servicioId, progreso, observaciones) {
+    async updateProgreso(servicioId, estadoVehiculo, observaciones) {
         try {
             const userData = JSON.parse(localStorage.getItem('tallerhunter_user') || '{}');
             const usuario  = userData.nombre || 'Sistema';
-            await DB.updateProgreso(servicioId, progreso, observaciones, usuario);
+            await DB.updateProgreso(servicioId, estadoVehiculo, observaciones, usuario);
             const idx = DataStore.services.findIndex(s => s.id === servicioId);
-            if (idx !== -1) DataStore.services[idx].progreso = progreso;
-
-            // Sincronizar estado del servicio según progreso
-            const estadoMap = {
-                recepcion:   'En Proceso',
-                diagnostico: 'En Proceso',
-                reparacion:  'En Proceso',
-                calidad:     'En Proceso',
-                entrega:     'Completado'
-            };
-            const nuevoEstado = estadoMap[progreso];
-            if (nuevoEstado) {
-                await DB.updateServicio(servicioId, { estado: nuevoEstado });
-                if (idx !== -1) DataStore.services[idx].status = nuevoEstado === 'Completado' ? 'completed' : 'process';
+            if (idx !== -1) {
+                DataStore.services[idx].estadoVehiculo = estadoVehiculo;
+                DataStore.services[idx].observaciones  = observaciones || null;
             }
             return DataStore.services[idx];
         } catch (e) {

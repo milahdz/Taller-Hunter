@@ -1,0 +1,8 @@
+# Credenciales y archivos de entorno locales
+js/config.js
+
+# Carpetas del sistema y de edición
+.DS_Store
+Thumbs.db
+.vscode/
+.gemini/
