@@ -84,10 +84,16 @@ const ServiceManager = {
             const userData = JSON.parse(localStorage.getItem('tallerhunter_user') || '{}');
             const usuario  = userData.nombre || 'Sistema';
             await DB.updateProgreso(servicioId, estadoVehiculo, observaciones, usuario);
+
+            const nuevoEstado = estadoVehiculo === 'entrega' ? 'Completado' : 'En Proceso';
+            await DB.updateServicio(servicioId, { estado: nuevoEstado });
+
             const idx = DataStore.services.findIndex(s => s.id === servicioId);
             if (idx !== -1) {
                 DataStore.services[idx].estadoVehiculo = estadoVehiculo;
                 DataStore.services[idx].observaciones  = observaciones || null;
+                DataStore.services[idx].estado  = nuevoEstado;
+                DataStore.services[idx].status  = nuevoEstado === 'Completado' ? 'completed' : 'process';
             }
             return DataStore.services[idx];
         } catch (e) {

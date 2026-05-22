@@ -959,7 +959,6 @@ function renderListaServicios() {
                 <td>
                     <div class="action-buttons" style="justify-content:center;">
                         ${s.status !== 'completed' ? `<button class="action-btn-icon btn-progreso" data-id="${s.id}" title="Actualizar Progreso" style="color:#0891b2;"><i class="fas fa-tasks"></i></button>` : ''}
-                        ${s.status !== 'completed' ? `<button class="action-btn-icon btn-complete" data-id="${s.id}" title="Marcar Completado"><i class="fas fa-check"></i></button>` : ''}
                         <button class="action-btn-icon btn-print" data-id="${s.id}" title="Imprimir Factura" style="color:#7c3aed;"><i class="fas fa-print"></i></button>
                         <button class="action-btn-icon btn-delete" data-id="${s.id}" title="Eliminar"><i class="fas fa-trash"></i></button>
                     </div>
@@ -975,16 +974,6 @@ function renderListaServicios() {
         btn.addEventListener('click', (e) => {
             const id = e.currentTarget.getAttribute('data-id');
             abrirModalProgreso(id);
-        });
-    });
-    container.querySelectorAll('.btn-complete').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const id = e.currentTarget.getAttribute('data-id');
-            await ServiceManager.updateService(id, { estado: 'Completado' });
-            await cargarDatosReales();
-            renderListaServicios();
-            actualizarEstadisticas();
-            UIManager.showNotification('Servicio marcado como completado', 'success');
         });
     });
     container.querySelectorAll('.btn-delete').forEach(btn => {
